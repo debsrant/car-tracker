@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Gauge Arc -->
+  <path d="M 120 260 A 136 136 0 1 1 392 260" fill="none" stroke="#93c5fd" stroke-width="24" stroke-linecap="round" stroke-dasharray="60 20"/>
+  <path d="M 256 245 L 330 165" stroke="#34d399" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="256" cy="245" r="22" fill="#ffffff"/>
+  <!-- Car Silhouette -->
+  <path d="M 116 340 L 148 276 C 156 262 170 254 186 254 L 326 254 C 342 254 356 262 364 276 L 396 340 L 412 340 C 424 340 432 350 432 362 L 432 396 C 432 406 424 414 414 414 L 392 414 L 392 430 C 392 442 382 452 370 452 L 350 452 C 338 452 328 442 328 430 L 328 414 L 184 414 L 184 430 C 184 442 174 452 162 452 L 142 452 C 130 452 120 442 120 430 L 120 414 L 98 414 C 88 414 80 406 80 396 L 80 362 C 80 350 88 340 100 340 Z" fill="#ffffff"/>
+  <path d="M 162 282 L 142 326 L 370 326 L 350 282 Z" fill="#1e3a8a"/>
+  <circle cx="148" cy="368" r="20" fill="#2563eb"/>
+  <circle cx="364" cy="368" r="20" fill="#2563eb"/>
+</svg>
