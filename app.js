@@ -7,11 +7,13 @@ window.App = {
   computedLogs: [],
   deferredInstallPrompt: null,
   returnToLogModalAfterVehicleAdd: false,
+  pendingReceiptFile: null,
 
   async init() {
     this.initTheme();
     this.initServiceWorkerAndInstall();
     this.loadGhSettings();
+    this.loadDriveSettings();
     await AutoPulseDB.init();
     await this.reloadAllData();
   },
@@ -268,6 +270,19 @@ window.App = {
       `;
     }
 
+    const receiptsCount = this.computedLogs.filter((l) => l.receipt && l.receipt.url).length;
+    alertsHtml += `
+      <div style="padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--bg);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <strong style="font-size:0.84rem;">🧾 Receipts Attached</strong>
+          <span class="badge ${receiptsCount > 0 ? "badge-success" : "badge-primary"}">${receiptsCount} / ${this.computedLogs.length}</span>
+        </div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">
+          ${receiptsCount > 0 ? `<strong>${receiptsCount}</strong> event${receiptsCount === 1 ? "" : "s"} linked to Google Drive receipts.` : "Attach photos or PDFs in any log entry to store them in Google Drive."}
+        </div>
+      </div>
+    `;
+
     document.getElementById("dashboardAlerts").innerHTML = alertsHtml || `<div style="color:var(--text-muted); font-size:0.82rem;">No active reminders or insights yet for this vehicle.</div>`;
   },
 
@@ -319,20 +334,34 @@ window.App = {
     const q = (document.getElementById("logSearchInput").value || "").toLowerCase().trim();
     const typeFilter = document.getElementById("logTypeFilter").value;
     const yearFilter = document.getElementById("logYearFilter").value;
+    const receiptFilterEl = document.getElementById("logReceiptFilter");
+    const receiptFilter = receiptFilterEl ? receiptFilterEl.value : "all";
     const tbody = document.getElementById("logsTableBody");
+
+    if (receiptFilterEl) {
+      const attachedTotal = this.computedLogs.filter((l) => l.receipt && l.receipt.url).length;
+      const missingTotal = this.computedLogs.length - attachedTotal;
+      receiptFilterEl.options[0].textContent = `All Receipts (${this.computedLogs.length})`;
+      receiptFilterEl.options[1].textContent = `🧾 Has Receipt (${attachedTotal})`;
+      receiptFilterEl.options[2].textContent = `📭 No Receipt (${missingTotal})`;
+    }
 
     const rows = [...this.computedLogs].reverse().filter((r) => {
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
       if (yearFilter !== "all" && !(r.date || "").startsWith(yearFilter)) return false;
+      const hasReceipt = !!(r.receipt && r.receipt.url);
+      if (receiptFilter === "attached" && !hasReceipt) return false;
+      if (receiptFilter === "missing" && hasReceipt) return false;
       if (q) {
-        const hay = `${r.date} ${r.odometer} ${r.location || ""} ${r.notes || ""} ${r.serviceItem || ""} ${r.fuelGrade || ""}`.toLowerCase();
+        const receiptName = r.receipt && r.receipt.name ? r.receipt.name : "";
+        const hay = `${r.date} ${r.odometer} ${r.location || ""} ${r.notes || ""} ${r.serviceItem || ""} ${r.fuelGrade || ""} ${receiptName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
 
     if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:24px; color:var(--text-muted);">No matching log entries found for this vehicle.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:24px; color:var(--text-muted);">No matching log entries found for this vehicle.</td></tr>`;
       return;
     }
 
@@ -355,6 +384,11 @@ window.App = {
             ? `<span class="badge badge-success">${r.mpg.toFixed(1)}</span>`
             : "—";
 
+        const hasReceipt = !!(r.receipt && r.receipt.url);
+        const receiptCell = hasReceipt
+          ? `<a href="${this.escape(r.receipt.url)}" target="_blank" rel="noopener noreferrer" class="receipt-badge attached" title="View Receipt: ${this.escape(r.receipt.name || "Open in Google Drive")}">🧾 Attached ↗</a>`
+          : `<button type="button" onclick="App.openLogModal('${r.id}')" class="receipt-badge missing" title="No receipt attached — click to attach one">＋ Attach</button>`;
+
         return `
           <tr>
             <td class="mono" style="white-space:nowrap;">${this.escape(r.date)}</td>
@@ -365,6 +399,7 @@ window.App = {
             <td class="mono text-right" style="white-space:nowrap;">${details}</td>
             <td class="mono text-right" style="font-weight:700;">$${Number(r.totalCost || 0).toFixed(2)}</td>
             <td class="mono text-right">${mpgCell}</td>
+            <td style="white-space:nowrap;">${receiptCell}</td>
             <td style="color:var(--text-muted); max-width:220px;">${this.escape(r.notes || "—")}</td>
             <td class="text-right" style="white-space:nowrap;">
               <button onclick="App.openLogModal('${r.id}')" class="btn" style="padding:4px 8px; font-size:0.74rem;">Edit</button>
@@ -470,6 +505,9 @@ window.App = {
   openLogModal(editId = null) {
     const modal = document.getElementById("logModal");
     const today = new Date().toISOString().slice(0, 10);
+    this.pendingReceiptFile = null;
+    const fileInput = document.getElementById("logReceiptFileInput");
+    if (fileInput) fileInput.value = "";
 
     if (editId) {
       const item = this.logs.find((l) => l.id === editId);
@@ -488,6 +526,7 @@ window.App = {
       document.getElementById("logServiceItem").value = item.serviceItem || "";
       document.getElementById("logServiceCost").value = item.totalCost || "";
       document.getElementById("logNotes").value = item.notes || "";
+      this.setModalReceiptFields(item.receipt || null);
     } else {
       const latestOdo = this.getLatestOdometerForVehicle(this.activeVehicleId);
       document.getElementById("logModalTitle").textContent = "Log Vehicle Event";
@@ -504,10 +543,192 @@ window.App = {
       document.getElementById("logServiceItem").value = "";
       document.getElementById("logServiceCost").value = "";
       document.getElementById("logNotes").value = "";
+      this.setModalReceiptFields(null);
     }
 
     this.toggleLogTypeFields();
     modal.classList.add("open");
+  },
+
+  setModalReceiptFields(receipt) {
+    const urlInput = document.getElementById("logReceiptUrl");
+    const nameInput = document.getElementById("logReceiptName");
+    const driveIdInput = document.getElementById("logReceiptDriveId");
+    const mimeInput = document.getElementById("logReceiptMime");
+
+    if (receipt && receipt.url) {
+      urlInput.value = receipt.url || "";
+      nameInput.value = receipt.name || "Google Drive Receipt";
+      driveIdInput.value = receipt.driveFileId || "";
+      mimeInput.value = receipt.mimeType || "";
+    } else {
+      urlInput.value = "";
+      nameInput.value = "";
+      driveIdInput.value = "";
+      mimeInput.value = "";
+    }
+    this.updateLogReceiptUi();
+  },
+
+  updateLogReceiptUi() {
+    const panel = document.getElementById("logReceiptPanel");
+    const badge = document.getElementById("logReceiptStatusBadge");
+    const uploadBtn = document.getElementById("logReceiptUploadNowBtn");
+    const infoRow = document.getElementById("logReceiptInfoRow");
+    const infoIcon = document.getElementById("logReceiptInfoIcon");
+    const infoName = document.getElementById("logReceiptInfoName");
+    const openLink = document.getElementById("logReceiptOpenLink");
+    const urlVal = (document.getElementById("logReceiptUrl").value || "").trim();
+    const nameVal = (document.getElementById("logReceiptName").value || "").trim();
+
+    if (this.pendingReceiptFile) {
+      panel.className = "receipt-panel queued-receipt";
+      badge.className = "badge badge-warning";
+      badge.textContent = "📤 Ready to Upload";
+      uploadBtn.style.display = "inline-flex";
+      infoRow.style.display = "flex";
+      infoIcon.textContent = "📎";
+      const kb = Math.max(1, Math.round(this.pendingReceiptFile.size / 1024));
+      infoName.textContent = `${this.pendingReceiptFile.name} (${kb} KB — uploads on Save)`;
+      openLink.style.display = "none";
+    } else if (urlVal) {
+      panel.className = "receipt-panel has-receipt";
+      badge.className = "badge badge-success";
+      badge.textContent = "✅ Receipt Attached";
+      uploadBtn.style.display = "none";
+      infoRow.style.display = "flex";
+      infoIcon.textContent = "✅";
+      infoName.textContent = nameVal || "Attached Google Drive Receipt";
+      openLink.href = urlVal;
+      openLink.style.display = "inline-flex";
+    } else {
+      panel.className = "receipt-panel";
+      badge.className = "badge badge-primary";
+      badge.textContent = "No Receipt";
+      uploadBtn.style.display = "none";
+      infoRow.style.display = "none";
+      openLink.style.display = "none";
+    }
+  },
+
+  onReceiptFileSelected(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    this.pendingReceiptFile = file;
+    this.updateLogReceiptUi();
+  },
+
+  onReceiptUrlManualInput() {
+    const urlVal = (document.getElementById("logReceiptUrl").value || "").trim();
+    if (urlVal && !document.getElementById("logReceiptName").value) {
+      document.getElementById("logReceiptName").value = "Linked Receipt";
+    }
+    if (!urlVal) {
+      document.getElementById("logReceiptName").value = "";
+      document.getElementById("logReceiptDriveId").value = "";
+      document.getElementById("logReceiptMime").value = "";
+    }
+    this.updateLogReceiptUi();
+  },
+
+  clearLogReceipt() {
+    this.pendingReceiptFile = null;
+    const fileInput = document.getElementById("logReceiptFileInput");
+    if (fileInput) fileInput.value = "";
+    this.setModalReceiptFields(null);
+  },
+
+  buildCleanReceiptFileName(originalName) {
+    const date = document.getElementById("logDate").value || new Date().toISOString().slice(0, 10);
+    const odo = document.getElementById("logOdometer").value || "0";
+    const type = document.getElementById("logType").value || "event";
+    const locRaw = document.getElementById("logLocation").value || document.getElementById("logServiceItem").value || "";
+    const cleanLoc = locRaw.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 24);
+    const extMatch = String(originalName || "").match(/(\.[a-zA-Z0-9]{1,6})$/);
+    const ext = extMatch ? extMatch[1].toLowerCase() : ".jpg";
+    return `${date}_${odo}mi_${type}${cleanLoc ? "_" + cleanLoc : ""}${ext}`;
+  },
+
+  fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const commaIdx = result.indexOf(",");
+        resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  },
+
+  async uploadPendingReceiptToDrive() {
+    if (!this.pendingReceiptFile) return null;
+    const gdCfg = this.getDriveSettingsFromInputs();
+    if (!gdCfg.scriptUrl) {
+      alert("Google Drive upload is not configured yet.\n\nGo to '💾 Backup, Sync & Vehicles' → '🧾 Google Drive Receipt Uploads' to paste your Google Apps Script Web App URL (or paste a receipt link directly).");
+      return null;
+    }
+
+    const file = this.pendingReceiptFile;
+    const badge = document.getElementById("logReceiptStatusBadge");
+    const uploadBtn = document.getElementById("logReceiptUploadNowBtn");
+    const saveBtn = document.getElementById("logSaveSubmitBtn");
+
+    try {
+      badge.className = "badge badge-warning";
+      badge.textContent = "⏳ Uploading to Drive...";
+      if (uploadBtn) uploadBtn.disabled = true;
+      if (saveBtn) saveBtn.disabled = true;
+
+      const base64 = await this.fileToBase64(file);
+      const cleanName = this.buildCleanReceiptFileName(file.name);
+
+      const payload = {
+        action: "upload",
+        secret: gdCfg.secretKey || "",
+        folderName: gdCfg.folderName || "AutoPulse Receipts",
+        fileName: cleanName,
+        mimeType: file.type || "application/octet-stream",
+        base64
+      };
+
+      const res = await fetch(gdCfg.scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      if (!data.ok) {
+        throw new Error(data.error || "Apps Script returned an error");
+      }
+
+      this.pendingReceiptFile = null;
+      const fileInput = document.getElementById("logReceiptFileInput");
+      if (fileInput) fileInput.value = "";
+
+      const receiptObj = {
+        name: data.fileName || cleanName,
+        url: data.url,
+        driveFileId: data.fileId || "",
+        mimeType: file.type || ""
+      };
+      this.setModalReceiptFields(receiptObj);
+      this.showToast("Receipt uploaded to Google Drive!");
+      return receiptObj;
+    } catch (err) {
+      badge.className = "badge badge-danger";
+      badge.textContent = "⚠️ Upload Failed";
+      alert("Google Drive Upload Failed: " + err.message);
+      return null;
+    } finally {
+      if (uploadBtn) uploadBtn.disabled = false;
+      if (saveBtn) saveBtn.disabled = false;
+    }
   },
 
   onLogModalVehicleChange() {
@@ -550,10 +771,24 @@ window.App = {
 
   async saveLogForm(e) {
     e.preventDefault();
+
+    // If the user selected a receipt file and hasn't clicked "Upload to Drive" yet, upload it now
+    if (this.pendingReceiptFile) {
+      const uploaded = await this.uploadPendingReceiptToDrive();
+      if (!uploaded) {
+        return; // Stop save so user can fix Drive settings or remove file
+      }
+    }
+
     const id = document.getElementById("logId").value || "log_" + Date.now().toString(36);
     const selectedVehicleId = document.getElementById("logVehicleId").value || this.activeVehicleId;
     const type = document.getElementById("logType").value;
     const isFuel = type === "fuel";
+
+    const receiptUrl = (document.getElementById("logReceiptUrl").value || "").trim();
+    const receiptName = (document.getElementById("logReceiptName").value || "").trim();
+    const receiptDriveId = (document.getElementById("logReceiptDriveId").value || "").trim();
+    const receiptMime = (document.getElementById("logReceiptMime").value || "").trim();
 
     const entry = {
       id,
@@ -563,7 +798,15 @@ window.App = {
       odometer: Number(document.getElementById("logOdometer").value),
       location: document.getElementById("logLocation").value.trim(),
       notes: document.getElementById("logNotes").value.trim(),
-      totalCost: Number(isFuel ? document.getElementById("logTotalCost").value : document.getElementById("logServiceCost").value) || 0
+      totalCost: Number(isFuel ? document.getElementById("logTotalCost").value : document.getElementById("logServiceCost").value) || 0,
+      receipt: receiptUrl
+        ? {
+            name: receiptName || "Google Drive Receipt",
+            url: receiptUrl,
+            driveFileId: receiptDriveId,
+            mimeType: receiptMime
+          }
+        : null
     };
 
     if (isFuel) {
@@ -908,6 +1151,136 @@ window.App = {
     }
   },
 
+  // Google Drive Receipt Uploads (Option 4A: Apps Script Bridge)
+  loadDriveSettings() {
+    try {
+      const raw = localStorage.getItem("autopulse_gdrive_cfg");
+      if (!raw) return;
+      const cfg = JSON.parse(raw);
+      const urlEl = document.getElementById("gdScriptUrl");
+      const folderEl = document.getElementById("gdFolderName");
+      const secretEl = document.getElementById("gdSecretKey");
+      if (urlEl) urlEl.value = cfg.scriptUrl || "";
+      if (folderEl) folderEl.value = cfg.folderName || "AutoPulse Receipts";
+      if (secretEl) secretEl.value = cfg.secretKey || "";
+      this.updateDriveBadge(cfg.scriptUrl ? "Configured" : "Not Configured", !!cfg.scriptUrl);
+    } catch (_) {}
+  },
+
+  getDriveSettingsFromInputs() {
+    const urlEl = document.getElementById("gdScriptUrl");
+    const folderEl = document.getElementById("gdFolderName");
+    const secretEl = document.getElementById("gdSecretKey");
+    return {
+      scriptUrl: urlEl ? urlEl.value.trim() : "",
+      folderName: (folderEl ? folderEl.value.trim() : "") || "AutoPulse Receipts",
+      secretKey: secretEl ? secretEl.value.trim() : ""
+    };
+  },
+
+  saveDriveSettings(notify = false) {
+    const cfg = this.getDriveSettingsFromInputs();
+    localStorage.setItem("autopulse_gdrive_cfg", JSON.stringify(cfg));
+    this.updateDriveBadge(cfg.scriptUrl ? "Configured" : "Not Configured", !!cfg.scriptUrl);
+    if (notify) this.showToast("Google Drive receipt settings saved");
+    return cfg;
+  },
+
+  updateDriveBadge(text, ok = false) {
+    const b = document.getElementById("gdStatusBadge");
+    if (!b) return;
+    b.textContent = text;
+    b.className = "badge " + (ok ? "badge-success" : "badge-primary");
+  },
+
+  async testDriveConnection() {
+    const cfg = this.saveDriveSettings(false);
+    if (!cfg.scriptUrl) {
+      alert("Please paste your Google Apps Script Web App URL first.");
+      return;
+    }
+
+    try {
+      this.updateDriveBadge("Testing...", false);
+      const res = await fetch(cfg.scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "test",
+          secret: cfg.secretKey || "",
+          folderName: cfg.folderName || "AutoPulse Receipts"
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Apps Script returned an error");
+      this.updateDriveBadge(`Ready (${data.folderName || cfg.folderName})`, true);
+      this.showToast(`Connected! Folder "${data.folderName || cfg.folderName}" is ready in Google Drive.`);
+    } catch (err) {
+      this.updateDriveBadge("Connection Error", false);
+      alert("Google Drive Test Failed: " + err.message);
+    }
+  },
+
+  getAppsScriptTemplate() {
+    return [
+      "// AutoPulse — Google Drive Receipt Upload Bridge (Option 4A)",
+      "// Paste this into https://script.google.com and click Deploy -> New deployment -> Web app",
+      "const SECRET_KEY = ''; // Optional: set a passphrase here and in AutoPulse settings",
+      "",
+      "function getOrCreateFolder_(folderNameOrId) {",
+      "  const target = (folderNameOrId || 'AutoPulse Receipts').trim();",
+      "  // If it looks like a Drive Folder ID (no spaces, 25+ chars), try opening by ID first",
+      "  if (/^[a-zA-Z0-9_-]{25,}$/.test(target)) {",
+      "    try { return DriveApp.getFolderById(target); } catch (e) {}",
+      "  }",
+      "  const iter = DriveApp.getFoldersByName(target);",
+      "  if (iter.hasNext()) return iter.next();",
+      "  return DriveApp.createFolder(target);",
+      "}",
+      "",
+      "function doPost(e) {",
+      "  try {",
+      "    const data = JSON.parse(e.postData.contents);",
+      "    if (SECRET_KEY && data.secret !== SECRET_KEY) {",
+      "      return jsonOut_({ ok: false, error: 'Invalid secret passphrase' });",
+      "    }",
+      "    const folder = getOrCreateFolder_(data.folderName);",
+      "    if (data.action === 'test') {",
+      "      return jsonOut_({ ok: true, folderName: folder.getName(), folderId: folder.getId() });",
+      "    }",
+      "    const bytes = Utilities.base64Decode(data.base64);",
+      "    const blob = Utilities.newBlob(bytes, data.mimeType || 'application/octet-stream', data.fileName || 'receipt');",
+      "    const file = folder.createFile(blob);",
+      "    return jsonOut_({",
+      "      ok: true,",
+      "      fileId: file.getId(),",
+      "      fileName: file.getName(),",
+      "      url: file.getUrl(),",
+      "      folderName: folder.getName()",
+      "    });",
+      "  } catch (err) {",
+      "    return jsonOut_({ ok: false, error: String(err) });",
+      "  }",
+      "}",
+      "",
+      "function jsonOut_(obj) {",
+      "  return ContentService.createTextOutput(JSON.stringify(obj))",
+      "    .setMimeType(ContentService.MimeType.JSON);",
+      "}"
+    ].join("\n");
+  },
+
+  async copyAppsScriptCode() {
+    const code = this.getAppsScriptTemplate();
+    try {
+      await navigator.clipboard.writeText(code);
+      this.showToast("Apps Script code copied to clipboard!");
+    } catch (_) {
+      prompt("Copy the Google Apps Script code below:", code);
+    }
+  },
+
   closeModal(id) {
     document.getElementById(id).classList.remove("open");
   },
@@ -925,9 +1298,10 @@ window.App = {
   },
 
   exportCsvLogs() {
-    const headers = ["VehicleID", "Date", "Odometer", "DeltaMiles", "Type", "Location", "FuelGrade", "Gallons", "PricePerGal", "TotalCost", "CalculatedMPG", "Notes"];
+    const headers = ["VehicleID", "Date", "Odometer", "DeltaMiles", "Type", "Location", "FuelGrade", "Gallons", "PricePerGal", "TotalCost", "CalculatedMPG", "ReceiptAttached", "ReceiptName", "ReceiptURL", "Notes"];
     const lines = [headers.join(",")];
     this.computedLogs.forEach((r) => {
+      const hasReceipt = !!(r.receipt && r.receipt.url);
       const row = [
         r.vehicleId,
         r.date,
@@ -940,6 +1314,9 @@ window.App = {
         r.pricePerGal || "",
         r.totalCost || "",
         r.mpg ? r.mpg.toFixed(2) : "",
+        hasReceipt ? "Yes" : "No",
+        `"${((r.receipt && r.receipt.name) || "").replace(/"/g, '""')}"`,
+        `"${((r.receipt && r.receipt.url) || "").replace(/"/g, '""')}"`,
         `"${(r.notes || "").replace(/"/g, '""')}"`
       ];
       lines.push(row.join(","));

@@ -626,3 +626,59 @@ tr:hover td {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* Receipt Attachment Indicators & Controls */
+.receipt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.receipt-badge.attached {
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.receipt-badge.attached:hover {
+  background: rgba(16, 185, 129, 0.25);
+}
+
+.receipt-badge.missing {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  cursor: pointer;
+}
+
+.receipt-badge.missing:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.receipt-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.receipt-panel.has-receipt {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: var(--success-soft);
+}
+
+.receipt-panel.queued-receipt {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: var(--primary-soft);
+}
+

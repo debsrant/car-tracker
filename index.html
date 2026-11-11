@@ -202,6 +202,11 @@
             <select id="logYearFilter" onchange="App.renderLogsTable()" class="select" style="width:auto;">
               <option value="all">All Years</option>
             </select>
+            <select id="logReceiptFilter" onchange="App.renderLogsTable()" class="select" style="width:auto;" aria-label="Filter by Receipt">
+              <option value="all">All Receipts</option>
+              <option value="attached">🧾 Has Receipt</option>
+              <option value="missing">📭 No Receipt</option>
+            </select>
             <button onclick="App.openLogModal()" class="btn btn-primary">＋ Add Entry</button>
           </div>
         </div>
@@ -219,6 +224,7 @@
               <th class="text-right">Details</th>
               <th class="text-right">Total Cost</th>
               <th class="text-right">MPG</th>
+              <th>Receipt</th>
               <th>Notes</th>
               <th class="text-right">Actions</th>
             </tr>
@@ -299,6 +305,45 @@
             <button onclick="App.saveGhSettings(true)" class="btn">💾 Save Sync Settings</button>
             <button onclick="App.pullFromGitHub()" class="btn">⬇️ Pull from GitHub</button>
             <button onclick="App.pushToGitHub()" class="btn btn-primary">⬆️ Push to GitHub</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Google Drive Receipt Folder (Apps Script Bridge) Card -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🧾 Google Drive Receipt Uploads (Apps Script Bridge)</div>
+            <div class="card-subtitle">Upload receipt photos & PDFs directly into a folder in your Google Drive without OAuth popups, and store the Drive link on each log entry.</div>
+          </div>
+          <span id="gdStatusBadge" class="badge badge-primary">Not Configured</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Google Apps Script Web App URL (<code>https://script.google.com/macros/s/.../exec</code>)</label>
+            <input type="url" id="gdScriptUrl" class="input mono" placeholder="https://script.google.com/macros/s/AKfycb.../exec" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Google Drive Folder Name (or Folder ID)</label>
+            <input type="text" id="gdFolderName" class="input" value="AutoPulse Receipts" placeholder="AutoPulse Receipts" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Optional Secret Passphrase (if set in script)</label>
+            <input type="password" id="gdSecretKey" class="input" placeholder="Leave blank unless you set SECRET_KEY in script" />
+          </div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="button" onclick="App.copyAppsScriptCode()" class="btn" title="Copy the Google Apps Script code to paste into script.google.com">
+              📋 Copy Apps Script Code
+            </button>
+            <span style="font-size:0.76rem; color:var(--text-muted);">See <code>instructions.md</code> Section 4 for step-by-step Google Drive setup.</span>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" onclick="App.saveDriveSettings(true)" class="btn">💾 Save Drive Settings</button>
+            <button type="button" onclick="App.testDriveConnection()" class="btn btn-primary">🔌 Test Drive Connection</button>
           </div>
         </div>
       </div>
@@ -474,9 +519,52 @@
           <input type="text" id="logNotes" class="input" placeholder="Optional rewards discount, part brand, warranty info..." />
         </div>
 
+        <!-- Receipt Attachment (Google Drive Option 4A) -->
+        <div id="logReceiptPanel" class="receipt-panel">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="form-label" style="color:var(--text); font-size:0.8rem;">🧾 Receipt Attachment</span>
+              <span id="logReceiptStatusBadge" class="badge badge-primary">No Receipt</span>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <input type="file" id="logReceiptFileInput" accept="image/*,application/pdf,.heic,.webp" onchange="App.onReceiptFileSelected(event)" style="display:none;" />
+              <button type="button" onclick="document.getElementById('logReceiptFileInput').click()" class="btn" style="padding:5px 10px; font-size:0.76rem;">
+                📷 Choose Photo / PDF
+              </button>
+              <button type="button" id="logReceiptUploadNowBtn" onclick="App.uploadPendingReceiptToDrive()" class="btn btn-primary" style="display:none; padding:5px 10px; font-size:0.76rem;">
+                ⬆️ Upload to Drive
+              </button>
+            </div>
+          </div>
+
+          <!-- Active / Queued Receipt Summary -->
+          <div id="logReceiptInfoRow" style="display:none; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); font-size:0.8rem; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+              <span id="logReceiptInfoIcon">✅</span>
+              <strong id="logReceiptInfoName" class="mono" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:230px;">receipt.jpg</strong>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <a id="logReceiptOpenLink" href="#" target="_blank" rel="noopener noreferrer" class="btn" style="padding:3px 8px; font-size:0.74rem; display:none;">
+                ↗ Open in Drive
+              </a>
+              <button type="button" onclick="App.clearLogReceipt()" class="btn btn-danger" style="padding:3px 8px; font-size:0.74rem;" title="Remove attached receipt">
+                ✕ Remove
+              </button>
+            </div>
+          </div>
+
+          <!-- Direct Link Fallback / Display -->
+          <div style="margin-top:8px;">
+            <input type="url" id="logReceiptUrl" oninput="App.onReceiptUrlManualInput()" class="input mono" style="font-size:0.76rem; padding:6px 10px;" placeholder="Auto-filled on Drive upload, or paste a Google Drive receipt link..." />
+            <input type="hidden" id="logReceiptName" />
+            <input type="hidden" id="logReceiptDriveId" />
+            <input type="hidden" id="logReceiptMime" />
+          </div>
+        </div>
+
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px; border-top:1px solid var(--border); padding-top:14px;">
           <button type="button" onclick="App.closeModal('logModal')" class="btn">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Entry</button>
+          <button type="submit" id="logSaveSubmitBtn" class="btn btn-primary">Save Entry</button>
         </div>
       </form>
     </div>
