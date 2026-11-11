@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>AutoPulse — Local-First Vehicle Tracker</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="stylesheet" href="./styles.css" />
+  <!-- Optional SheetJS for direct .xlsx import/export when online -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <img src="./icon.svg" alt="AutoPulse" class="app-logo" />
+        <div class="vehicle-selector-wrap">
+          <div class="vehicle-select-row">
+            <select id="vehicleSelect" class="vehicle-select" aria-label="Select Vehicle"></select>
+            <button onclick="App.openVehicleModal(false)" class="btn" style="padding:5px 10px; font-size:0.78rem;" title="Add a New Vehicle">
+              ＋ Vehicle
+            </button>
+            <span id="headerPlate" class="plate-badge">CUR 5768</span>
+          </div>
+          <div class="vehicle-sub">
+            VIN: <span id="headerVin">1C4PJMCS1HW569660</span> • Odo: <strong id="headerOdo">25,952 mi</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="installPwaBtn" class="btn" style="display:none;" title="Install App on Device">
+          📲 Install App
+        </button>
+        <button id="themeToggleBtn" class="btn btn-icon" title="Toggle Dark/Light Theme">
+          ☀️
+        </button>
+        <button onclick="App.openLogModal()" class="btn btn-primary">
+          ＋ Log Event
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Desktop Navigation Bar -->
+  <nav class="desktop-nav">
+    <div class="desktop-nav-inner">
+      <button onclick="App.switchView('dashboard')" id="dtab-dashboard" class="nav-tab active">
+        📊 Dashboard
+      </button>
+      <button onclick="App.switchView('logs')" id="dtab-logs" class="nav-tab">
+        ⛽ Event History (<span id="logCountBadge">81</span>)
+      </button>
+      <button onclick="App.switchView('reminders')" id="dtab-reminders" class="nav-tab">
+        🔧 Service Reminders
+      </button>
+      <button onclick="App.switchView('data')" id="dtab-data" class="nav-tab">
+        💾 Backup, Sync & Vehicles
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="container">
+
+    <!-- VIEW 1: DASHBOARD -->
+    <section id="view-dashboard" class="view-section active">
+
+      <!-- Prominent Dashboard Vehicle Switcher & New Vehicle Bar -->
+      <div class="vehicle-bar">
+        <div class="vehicle-bar-left">
+          <span class="form-label" style="font-size:0.82rem;">Active Vehicle:</span>
+          <select id="dashboardVehicleSelect" class="vehicle-select" aria-label="Dashboard Active Vehicle"></select>
+          <button onclick="App.openVehicleModal(true)" class="btn" style="padding:6px 12px; font-size:0.8rem;">
+            ✏️ Edit Vehicle
+          </button>
+          <button onclick="App.openVehicleModal(false)" class="btn" style="padding:6px 12px; font-size:0.8rem;">
+            ＋ New Vehicle
+          </button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button onclick="App.openLogModal()" class="btn btn-primary">
+            ＋ Log Fuel / Service
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="card">
+          <div class="kpi-label">Average Fuel Economy</div>
+          <div id="kpiAvgMpg" class="kpi-value">23.1 MPG</div>
+          <div class="kpi-foot">Best tank: <span id="kpiBestMpg" style="color:var(--success);font-weight:700;">—</span></div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Total Fuel & Service Spend</div>
+          <div id="kpiTotalSpend" class="kpi-value">$3,581.46</div>
+          <div id="kpiFuelSub" class="kpi-foot">1,115.6 gal across 81 fill-ups</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Operating Cost per Mile</div>
+          <div id="kpiCostPerMile" class="kpi-value">$0.139 / mi</div>
+          <div class="kpi-foot">Avg gas price: <span id="kpiAvgPpg">$3.21/gal</span></div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Distance Tracked</div>
+          <div id="kpiDistance" class="kpi-value">25,827 mi</div>
+          <div id="kpiDistanceSub" class="kpi-foot">Since May 2017</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Fuel Economy Trend (MPG)</div>
+              <div class="card-subtitle">Miles driven divided by gallons pumped at each fill-up</div>
+            </div>
+            <span class="badge badge-success">MPG</span>
+          </div>
+          <div style="width:100%; height:190px;">
+            <svg id="mpgChartSvg" viewBox="0 0 540 180" style="width:100%; height:100%; overflow:visible;"></svg>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Fuel Price per Gallon ($/Gal)</div>
+              <div class="card-subtitle">Historical pump prices from your fill-up log</div>
+            </div>
+            <span class="badge badge-primary">$/Gallon</span>
+          </div>
+          <div style="width:100%; height:190px;">
+            <svg id="priceChartSvg" viewBox="0 0 540 180" style="width:100%; height:100%; overflow:visible;"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Split -->
+      <div class="split-grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Vehicle Profile</div>
+            <div style="display:flex; gap:6px;">
+              <button onclick="App.openVehicleModal(true)" class="btn" style="padding:4px 10px; font-size:0.75rem;">Edit</button>
+              <button onclick="App.openVehicleModal(false)" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;">＋ Add</button>
+            </div>
+          </div>
+          <div id="vehicleProfileList" class="kv-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Active Reminders & Insights</div>
+              <div class="card-subtitle">Based on latest odometer & calendar dates</div>
+            </div>
+            <button onclick="App.switchView('reminders')" class="btn" style="padding:4px 10px; font-size:0.75rem;">Manage All</button>
+          </div>
+          <div id="dashboardAlerts" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:12px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: EVENT LOGS -->
+    <section id="view-logs" class="view-section">
+      <div class="card">
+        <div class="toolbar">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <span class="form-label">Vehicle:</span>
+            <select id="logsVehicleSelect" class="vehicle-select" aria-label="Logs Active Vehicle"></select>
+          </div>
+          <div style="flex:1; min-width:200px;">
+            <input id="logSearchInput" oninput="App.renderLogsTable()" type="search" class="input" placeholder="Search date, station (7 Eleven, KwikFill), notes, item, or odometer..." />
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <select id="logTypeFilter" onchange="App.renderLogsTable()" class="select" style="width:auto;">
+              <option value="all">All Types</option>
+              <option value="fuel">⛽ Fuel Fill-Ups</option>
+              <option value="maintenance">🔧 Maintenance</option>
+              <option value="repair">🛠️ Repairs</option>
+            </select>
+            <select id="logYearFilter" onchange="App.renderLogsTable()" class="select" style="width:auto;">
+              <option value="all">All Years</option>
+            </select>
+            <button onclick="App.openLogModal()" class="btn btn-primary">＋ Add Entry</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Odometer</th>
+              <th>Delta</th>
+              <th>Type</th>
+              <th>Location / Summary</th>
+              <th class="text-right">Details</th>
+              <th class="text-right">Total Cost</th>
+              <th class="text-right">MPG</th>
+              <th>Notes</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- VIEW 3: SERVICE REMINDERS -->
+    <section id="view-reminders" class="view-section">
+      <div class="card">
+        <div class="toolbar">
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <div class="card-title">Maintenance & Filter Intervals</div>
+              <div class="card-subtitle">Track parts and services by mileage, date, or whichever comes first</div>
+            </div>
+            <select id="remindersVehicleSelect" class="vehicle-select" aria-label="Reminders Active Vehicle"></select>
+          </div>
+          <button onclick="App.openReminderModal()" class="btn btn-primary">＋ New Reminder</button>
+        </div>
+      </div>
+
+      <div id="remindersGrid" class="reminders-grid"></div>
+    </section>
+
+    <!-- VIEW 4: BACKUP, IMPORT & VEHICLES -->
+    <section id="view-data" class="view-section">
+      <!-- GitHub Cloud Sync Card -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">☁️ GitHub Cloud Sync (Cross-Device Sync for Windows & Android)</div>
+            <div class="card-subtitle">Sync your IndexedDB database directly to a private GitHub Gist or your GitHub repository using a Personal Access Token (stored only on your device).</div>
+          </div>
+          <span id="ghSyncStatusBadge" class="badge badge-primary">Not Configured</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Sync Mode</label>
+            <select id="ghSyncMode" onchange="App.toggleGhSyncFields()" class="select">
+              <option value="gist">Private GitHub Gist (Recommended — Private & Instant)</option>
+              <option value="repo">GitHub Repository File (Commits data.json to Repo)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">GitHub Personal Access Token (PAT)</label>
+            <input type="password" id="ghToken" class="input" placeholder="ghp_... or github_pat_..." />
+          </div>
+
+          <div id="ghGistFields" class="form-group full">
+            <label class="form-label">Gist ID (Leave blank on first push to auto-create a secret Gist)</label>
+            <input type="text" id="ghGistId" class="input mono" placeholder="Will auto-fill when you click Push to GitHub" />
+          </div>
+
+          <div id="ghRepoFields" class="form-group full" style="display:none;">
+            <div class="form-grid" style="margin-top:0;">
+              <div class="form-group">
+                <label class="form-label">Repository (<code>owner/repo</code>)</label>
+                <input type="text" id="ghRepoName" class="input mono" placeholder="your-username/car-tracker" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">File Path in Repo</label>
+                <input type="text" id="ghFilePath" class="input mono" value="autopulse-data.json" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; cursor:pointer;">
+            <input type="checkbox" id="ghAutoSync" onchange="App.saveGhSettings()" />
+            <span>Auto-push to GitHub whenever I save/edit an entry</span>
+          </label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button onclick="App.saveGhSettings(true)" class="btn">💾 Save Sync Settings</button>
+            <button onclick="App.pullFromGitHub()" class="btn">⬇️ Pull from GitHub</button>
+            <button onclick="App.pushToGitHub()" class="btn btn-primary">⬆️ Push to GitHub</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <!-- Backup & Restore -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Backup & Cross-Device Transfer (JSON / CSV)</div>
+              <div class="card-subtitle">All data is stored privately on-device in IndexedDB. Export anytime to move between Windows & Android.</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button onclick="App.exportJsonBackup()" class="btn btn-primary">⬇ Download Full JSON Backup</button>
+              <button onclick="App.exportCsvLogs()" class="btn">📊 Export Logs to CSV</button>
+            </div>
+
+            <div style="border-top:1px solid var(--border); padding-top:12px;">
+              <div class="form-label" style="margin-bottom:6px;">Restore or Merge from JSON Backup</div>
+              <input type="file" id="jsonFileInput" accept=".json" onchange="App.handleJsonImport(event)" class="input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Excel Importer -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Direct Excel Importer (<code>auto tracker.xlsx</code>)</div>
+              <div class="card-subtitle">Your 81 Jeep Cherokee records are already pre-loaded! You can re-import an updated <code>.xlsx</code> file anytime.</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <p style="font-size:0.82rem; color:var(--text-muted);">
+              Automatically reads <code>Vehicles</code>, <code>Events</code>, <code>Fuel</code>, <code>Maintenance</code>, <code>Repair</code>, and <code>Filters</code> sheets, normalizes dates, and links odometer events.
+            </p>
+            <input type="file" id="xlsxFileInput" accept=".xlsx,.xls" onchange="App.handleXlsxImport(event)" class="input" />
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
+              <span style="font-size:0.78rem; color:var(--text-muted);">Want to reset to the original spreadsheet state?</span>
+              <button onclick="App.resetToFactorySeed()" class="btn btn-danger">↺ Reset to Default Seed</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manage Vehicles -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Garage (Multi-Vehicle Support)</div>
+            <div class="card-subtitle">Add additional vehicles and switch between them on any screen</div>
+          </div>
+          <button onclick="App.openVehicleModal(false)" class="btn btn-primary">＋ Add Vehicle</button>
+        </div>
+        <div id="garageList" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="mobile-nav">
+    <button onclick="App.switchView('dashboard')" id="mtab-dashboard" class="mobile-tab active">
+      <span>📊</span>
+      <span>Dashboard</span>
+    </button>
+    <button onclick="App.switchView('logs')" id="mtab-logs" class="mobile-tab">
+      <span>⛽</span>
+      <span>History</span>
+    </button>
+    <button onclick="App.switchView('reminders')" id="mtab-reminders" class="mobile-tab">
+      <span>🔧</span>
+      <span>Reminders</span>
+    </button>
+    <button onclick="App.switchView('data')" id="mtab-data" class="mobile-tab">
+      <span>💾</span>
+      <span>Data</span>
+    </button>
+  </nav>
+
+  <!-- MODAL 1: ADD / EDIT LOG ENTRY -->
+  <div id="logModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="card-header">
+        <div id="logModalTitle" class="card-title">Log Vehicle Event</div>
+        <button onclick="App.closeModal('logModal')" class="btn btn-icon">✕</button>
+      </div>
+
+      <form id="logForm" onsubmit="App.saveLogForm(event)">
+        <input type="hidden" id="logId" />
+
+        <div class="form-grid">
+          <div class="form-group full">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <label class="form-label">Vehicle</label>
+              <button type="button" onclick="App.openVehicleFromLogModal()" style="background:none; border:none; color:var(--primary); font-size:0.76rem; font-weight:600; cursor:pointer;">
+                ＋ Add New Vehicle
+              </button>
+            </div>
+            <select id="logVehicleId" onchange="App.onLogModalVehicleChange()" class="select" required></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Event Type</label>
+            <select id="logType" onchange="App.toggleLogTypeFields()" class="select" required>
+              <option value="fuel">⛽ Fuel Fill-Up</option>
+              <option value="maintenance">🔧 Maintenance</option>
+              <option value="repair">🛠️ Repair</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="logDate" class="input" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Odometer (mi)</label>
+            <input type="number" id="logOdometer" class="input" required min="0" step="1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location / Station / Shop</label>
+            <input type="text" id="logLocation" list="stationSuggestions" class="input" placeholder="e.g. 7 Eleven" />
+            <datalist id="stationSuggestions">
+              <option value="7 Eleven"></option>
+              <option value="KwikFill"></option>
+              <option value="Sunoco"></option>
+              <option value="Maple City Dodge"></option>
+            </datalist>
+          </div>
+        </div>
+
+        <!-- Fuel-Specific Fields -->
+        <div id="fuelFieldsWrap">
+          <div class="form-grid-3">
+            <div class="form-group">
+              <label class="form-label">Gallons</label>
+              <input type="number" id="logVolume" step="0.001" min="0" oninput="App.autoCalcFuelCost('vol')" class="input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Price / Gal ($)</label>
+              <input type="number" id="logPpg" step="0.001" min="0" oninput="App.autoCalcFuelCost('ppg')" class="input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Cost ($)</label>
+              <input type="number" id="logTotalCost" step="0.01" min="0" oninput="App.autoCalcFuelCost('cost')" class="input" required />
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group full">
+              <label class="form-label">Fuel Grade</label>
+              <input type="text" id="logFuelGrade" value="87 Gasoline" class="input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Maintenance / Repair Fields -->
+        <div id="serviceFieldsWrap" style="display:none;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Service / Part Item</label>
+              <input type="text" id="logServiceItem" class="input" placeholder="e.g. Oil & Filter Change, Fuel Filter" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Cost ($)</label>
+              <input type="number" id="logServiceCost" step="0.01" min="0" class="input" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group full" style="margin-top:12px;">
+          <label class="form-label">Notes</label>
+          <input type="text" id="logNotes" class="input" placeholder="Optional rewards discount, part brand, warranty info..." />
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px; border-top:1px solid var(--border); padding-top:14px;">
+          <button type="button" onclick="App.closeModal('logModal')" class="btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: ADD / EDIT REMINDER -->
+  <div id="reminderModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="card-header">
+        <div class="card-title">Service / Filter Reminder</div>
+        <button onclick="App.closeModal('reminderModal')" class="btn btn-icon">✕</button>
+      </div>
+      <form id="reminderForm" onsubmit="App.saveReminderForm(event)">
+        <input type="hidden" id="remId" />
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Vehicle</label>
+            <select id="remVehicleId" class="select" required></select>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Reminder Title</label>
+            <input type="text" id="remTitle" class="input" placeholder="e.g. Fuel Filter, Engine Oil, Tire Rotation" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Start / Last Done Date</label>
+            <input type="date" id="remStartDate" class="input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Due Date</label>
+            <input type="date" id="remDueDate" class="input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Done Odometer (mi)</label>
+            <input type="number" id="remStartOdo" class="input" placeholder="e.g. 24809" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Due Odometer (mi)</label>
+            <input type="number" id="remDueOdo" class="input" placeholder="e.g. 29809" />
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Notes</label>
+            <input type="text" id="remNotes" class="input" placeholder="Part number or interval notes..." />
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px; border-top:1px solid var(--border); padding-top:14px;">
+          <button type="button" onclick="App.closeModal('reminderModal')" class="btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Reminder</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: ADD / EDIT VEHICLE -->
+  <div id="vehicleModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="card-header">
+        <div id="vehModalTitle" class="card-title">Vehicle Details</div>
+        <button onclick="App.closeModal('vehicleModal')" class="btn btn-icon">✕</button>
+      </div>
+      <form id="vehicleForm" onsubmit="App.saveVehicleForm(event)">
+        <input type="hidden" id="vehId" />
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Display Name</label>
+            <input type="text" id="vehName" class="input" placeholder="2017 Jeep Cherokee" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Year</label>
+            <input type="number" id="vehYear" class="input" placeholder="2017" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Make / Brand</label>
+            <input type="text" id="vehBrand" class="input" placeholder="Jeep" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model</label>
+            <input type="text" id="vehModel" class="input" placeholder="Cherokee" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">License Plate</label>
+            <input type="text" id="vehLicense" class="input" placeholder="CUR 5768" />
+          </div>
+          <div class="form-group full">
+            <label class="form-label">VIN</label>
+            <input type="text" id="vehVin" class="input" placeholder="1C4PJMCS1HW569660" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Purchase Date</label>
+            <input type="date" id="vehPurchaseDate" class="input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Purchase Price ($)</label>
+            <input type="number" id="vehPurchasePrice" class="input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Purchased From</label>
+            <input type="text" id="vehDealer" class="input" placeholder="Maple City Dodge" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Initial Odometer (mi)</label>
+            <input type="number" id="vehInitOdo" class="input" value="0" required />
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px; border-top:1px solid var(--border); padding-top:14px;">
+          <button type="button" onclick="App.closeModal('vehicleModal')" class="btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Vehicle</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Saved!</div>
+
+  <script src="./seed-data.js"></script>
+  <script src="./db.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
