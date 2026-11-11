@@ -122,7 +122,11 @@ You have **two GitHub sync modes** to choose from:
 1. Click **＋ Log Event** (top right) or **＋ Log Fuel / Service** on the Dashboard.
 2. Confirm the **Vehicle** at the top of the form (if you switch vehicles here, the default odometer automatically updates to that vehicle's latest mileage + 300 mi).
 3. Choose **Event Type**:
+<<<<<<< HEAD
    - **⛽ Fuel Fill-Up**: Enter Date, Odometer, Station, and any two of **Gallons**, **Price / Gal**, or **Total Cost** (the third is calculated automatically). MPG is automatically calculated from the distance since your previous fuel entry divided by gallons pumped. The Dashboard displays both **Fuel Economy Trend (MPG)** and **Fuel Operating Cost ($/Mile)** trend charts.
+=======
+   - **⛽ Fuel Fill-Up**: Enter Date, Odometer, Station, and any two of **Gallons**, **Price / Gal**, or **Total Cost** (the third is calculated automatically). MPG is automatically calculated from the distance since your previous fuel entry divided by gallons pumped.
+>>>>>>> origin/main
    - **🔧 Maintenance** or **🛠️ Repair**: Enter the Service/Part Item, Total Cost, Shop/Location, and Notes.
 4. Click **Save Entry**.
 

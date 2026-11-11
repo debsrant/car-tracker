@@ -127,12 +127,17 @@ window.App = {
 
     const vehLogs = this.logs
       .filter((l) => l.vehicleId === vehicle.id)
+<<<<<<< HEAD
       .sort((a, b) => Number(a.odometer) - Number(b.odometer) || String(a.date || "").localeCompare(String(b.date || "")));
+=======
+      .sort((a, b) => a.odometer - b.odometer || a.date.localeCompare(b.date));
+>>>>>>> origin/main
 
     const initOdo = Number(vehicle.initialOdometer) || 0;
     let lastFuelOdo = initOdo;
 
     this.computedLogs = vehLogs.map((log, idx) => {
+<<<<<<< HEAD
       const prevOdo = idx === 0 ? initOdo : Number(vehLogs[idx - 1].odometer);
       const delta = Math.max(0, Number(log.odometer) - prevOdo);
       let mpg = null;
@@ -145,11 +150,26 @@ window.App = {
         if (vol > 0 && fuelDist > 0) {
           mpg = fuelDist / vol;
           costPerMile = fuelCost / fuelDist;
+=======
+      const prevOdo = idx === 0 ? initOdo : vehLogs[idx - 1].odometer;
+      const delta = Math.max(0, Number(log.odometer) - Number(prevOdo));
+      let mpg = null;
+
+      if (log.type === "fuel") {
+        const vol = Number(log.volume) || 0;
+        const fuelDist = Number(log.odometer) - lastFuelOdo;
+        if (vol > 0 && fuelDist > 0) {
+          mpg = fuelDist / vol;
+>>>>>>> origin/main
         }
         lastFuelOdo = Number(log.odometer);
       }
 
+<<<<<<< HEAD
       return { ...log, delta, mpg, costPerMile };
+=======
+      return { ...log, delta, mpg };
+>>>>>>> origin/main
     });
 
     const latestOdo = this.computedLogs.length > 0
@@ -186,7 +206,11 @@ window.App = {
     const totalDist = Math.max(0, latestOdo - (Number(vehicle.initialOdometer) || 0));
 
     const avgMpg = totalGallons > 0 ? totalDist / totalGallons : 0;
+<<<<<<< HEAD
     const validMpgs = fuelLogs.filter((l) => l.mpg && l.mpg >= 1 && l.mpg <= 99).map((l) => l.mpg);
+=======
+    const validMpgs = fuelLogs.filter((l) => l.mpg && l.mpg >= 10 && l.mpg <= 45).map((l) => l.mpg);
+>>>>>>> origin/main
     const bestMpg = validMpgs.length > 0 ? Math.max(...validMpgs) : 0;
     const costPerMile = totalDist > 0 ? totalAllCost / totalDist : 0;
     const avgPpg = totalGallons > 0 ? totalFuelCost / totalGallons : 0;
@@ -198,6 +222,7 @@ window.App = {
     document.getElementById("kpiCostPerMile").textContent = costPerMile > 0 ? "$" + costPerMile.toFixed(3) + " / mi" : "—";
     document.getElementById("kpiAvgPpg").textContent = avgPpg > 0 ? "$" + avgPpg.toFixed(2) + "/gal" : "—";
     document.getElementById("kpiDistance").textContent = totalDist.toLocaleString() + " mi";
+<<<<<<< HEAD
     document.getElementById("kpiDistanceSub").textContent = vehicle.purchaseDate ? `Since ${vehicle.purchaseDate}` : `Initial Odometer: ${vehicle.initialOdometer} mi`;
 
     // Charts
@@ -211,6 +236,16 @@ window.App = {
       .map((l) => ({ date: l.date, val: l.costPerMile, label: `$${l.costPerMile.toFixed(3)}/mi (${l.date})` }));
     this.renderSvgChart("cpmChartSvg", cpmPoints, "#f59e0b", "$");
 
+=======
+    document.getElementById("kpiDistanceSub").textContent = vehicle.purchaseDate ? `Since ${vehicle.purchaseDate}` : `Initial Odo: ${vehicle.initialOdometer} mi`;
+
+    // Charts
+    const mpgPoints = fuelLogs
+      .filter((l) => l.mpg && l.mpg >= 10 && l.mpg <= 45)
+      .map((l) => ({ date: l.date, val: l.mpg, label: `${l.mpg.toFixed(1)} MPG (${l.date})` }));
+    this.renderSvgChart("mpgChartSvg", mpgPoints, "#10b981", "");
+
+>>>>>>> origin/main
     const pricePoints = fuelLogs
       .filter((l) => l.pricePerGal > 0)
       .map((l) => ({ date: l.date, val: Number(l.pricePerGal), label: `$${Number(l.pricePerGal).toFixed(3)}/gal (${l.date})` }));
@@ -251,7 +286,11 @@ window.App = {
           </div>
           <div style="font-size:0.78rem; color:var(--text-muted);">
             ${r.dueDate ? `Target Date: <strong class="mono">${r.dueDate}</strong><br/>` : ""}
+<<<<<<< HEAD
             ${r.dueOdometer ? `Target Odometer: <strong class="mono">${Number(r.dueOdometer).toLocaleString()} mi</strong> (${(r.dueOdometer - latestOdo).toLocaleString()} mi left)` : ""}
+=======
+            ${r.dueOdometer ? `Target Odo: <strong class="mono">${Number(r.dueOdometer).toLocaleString()} mi</strong> (${(r.dueOdometer - latestOdo).toLocaleString()} mi left)` : ""}
+>>>>>>> origin/main
           </div>
         </div>
       `;

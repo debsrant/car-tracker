@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 const CACHE_NAME = "autopulse-pwa-v2";
+=======
+const CACHE_NAME = "autopulse-pwa-v1";
+>>>>>>> origin/main
 const ASSETS = [
   "./",
   "./index.html",
