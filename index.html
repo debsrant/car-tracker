@@ -23,7 +23,7 @@
           <div class="vehicle-select-row">
             <select id="vehicleSelect" class="vehicle-select" aria-label="Select Vehicle"></select>
             <button onclick="App.openVehicleModal(false)" class="btn" style="padding:5px 10px; font-size:0.78rem;" title="Add a New Vehicle">
-              ＋ Vehicle
+              + Vehicle
             </button>
             <span id="headerPlate" class="plate-badge">CUR 5768</span>
           </div>
@@ -35,13 +35,13 @@
 
       <div class="header-actions">
         <button id="installPwaBtn" class="btn" style="display:none;" title="Install App on Device">
-          📲 Install App
+          Install App
         </button>
-        <button id="themeToggleBtn" class="btn btn-icon" title="Toggle Dark/Light Theme">
-          ☀️
+        <button id="themeToggleBtn" class="btn btn-icon" title="Toggle Theme">
+          Theme
         </button>
         <button onclick="App.openLogModal()" class="btn btn-primary">
-          ＋ Log Event
+          + Log Event
         </button>
       </div>
     </div>
@@ -51,16 +51,16 @@
   <nav class="desktop-nav">
     <div class="desktop-nav-inner">
       <button onclick="App.switchView('dashboard')" id="dtab-dashboard" class="nav-tab active">
-        📊 Dashboard
+        Dashboard
       </button>
       <button onclick="App.switchView('logs')" id="dtab-logs" class="nav-tab">
-        ⛽ Event History (<span id="logCountBadge">81</span>)
+        Event History (<span id="logCountBadge">81</span>)
       </button>
       <button onclick="App.switchView('reminders')" id="dtab-reminders" class="nav-tab">
-        🔧 Service Reminders
+        Reminders
       </button>
       <button onclick="App.switchView('data')" id="dtab-data" class="nav-tab">
-        💾 Backup, Sync & Vehicles
+        Data & Sync
       </button>
     </div>
   </nav>
@@ -77,15 +77,15 @@
           <span class="form-label" style="font-size:0.82rem;">Active Vehicle:</span>
           <select id="dashboardVehicleSelect" class="vehicle-select" aria-label="Dashboard Active Vehicle"></select>
           <button onclick="App.openVehicleModal(true)" class="btn" style="padding:6px 12px; font-size:0.8rem;">
-            ✏️ Edit Vehicle
+            Edit Vehicle
           </button>
           <button onclick="App.openVehicleModal(false)" class="btn" style="padding:6px 12px; font-size:0.8rem;">
-            ＋ New Vehicle
+            + New Vehicle
           </button>
         </div>
         <div style="display:flex; gap:8px;">
           <button onclick="App.openLogModal()" class="btn btn-primary">
-            ＋ Log Fuel / Service
+            + Log Event
           </button>
         </div>
       </div>
@@ -162,7 +162,7 @@
             <div class="card-title">Vehicle Profile</div>
             <div style="display:flex; gap:6px;">
               <button onclick="App.openVehicleModal(true)" class="btn" style="padding:4px 10px; font-size:0.75rem;">Edit</button>
-              <button onclick="App.openVehicleModal(false)" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;">＋ Add</button>
+              <button onclick="App.openVehicleModal(false)" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;">+ Add</button>
             </div>
           </div>
           <div id="vehicleProfileList" class="kv-list"></div>
@@ -195,19 +195,19 @@
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <select id="logTypeFilter" onchange="App.renderLogsTable()" class="select" style="width:auto;">
               <option value="all">All Types</option>
-              <option value="fuel">⛽ Fuel Fill-Ups</option>
-              <option value="maintenance">🔧 Maintenance</option>
-              <option value="repair">🛠️ Repairs</option>
+              <option value="fuel">Fuel Fill-Ups</option>
+              <option value="service">Service & Repairs</option>
+              <option value="other">Other Expenses</option>
             </select>
             <select id="logYearFilter" onchange="App.renderLogsTable()" class="select" style="width:auto;">
               <option value="all">All Years</option>
             </select>
             <select id="logReceiptFilter" onchange="App.renderLogsTable()" class="select" style="width:auto;" aria-label="Filter by Receipt">
               <option value="all">All Receipts</option>
-              <option value="attached">🧾 Has Receipt</option>
-              <option value="missing">📭 No Receipt</option>
+              <option value="attached">Has Receipt</option>
+              <option value="missing">No Receipt</option>
             </select>
-            <button onclick="App.openLogModal()" class="btn btn-primary">＋ Add Entry</button>
+            <button onclick="App.openLogModal()" class="btn btn-primary">+ Add Entry</button>
           </div>
         </div>
       </div>
@@ -240,12 +240,12 @@
         <div class="toolbar">
           <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
             <div>
-              <div class="card-title">Maintenance & Filter Intervals</div>
+              <div class="card-title">Maintenance & Service Intervals</div>
               <div class="card-subtitle">Track parts and services by mileage, date, or whichever comes first</div>
             </div>
             <select id="remindersVehicleSelect" class="vehicle-select" aria-label="Reminders Active Vehicle"></select>
           </div>
-          <button onclick="App.openReminderModal()" class="btn btn-primary">＋ New Reminder</button>
+          <button onclick="App.openReminderModal()" class="btn btn-primary">+ New Reminder</button>
         </div>
       </div>
 
@@ -258,7 +258,7 @@
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">☁️ GitHub Cloud Sync (Cross-Device Sync for Windows & Android)</div>
+            <div class="card-title">GitHub Cloud Sync (Cross-Device Sync for Windows & Android)</div>
             <div class="card-subtitle">Sync your IndexedDB database directly to a private GitHub Gist or your GitHub repository using a Personal Access Token (stored only on your device).</div>
           </div>
           <span id="ghSyncStatusBadge" class="badge badge-primary">Not Configured</span>
@@ -302,9 +302,9 @@
             <span>Auto-push to GitHub whenever I save/edit an entry</span>
           </label>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button onclick="App.saveGhSettings(true)" class="btn">💾 Save Sync Settings</button>
-            <button onclick="App.pullFromGitHub()" class="btn">⬇️ Pull from GitHub</button>
-            <button onclick="App.pushToGitHub()" class="btn btn-primary">⬆️ Push to GitHub</button>
+            <button onclick="App.saveGhSettings(true)" class="btn">Save Sync Settings</button>
+            <button onclick="App.pullFromGitHub()" class="btn">Pull from GitHub</button>
+            <button onclick="App.pushToGitHub()" class="btn btn-primary">Push to GitHub</button>
           </div>
         </div>
       </div>
@@ -313,7 +313,7 @@
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">🧾 Google Drive Receipt Uploads (Apps Script Bridge)</div>
+            <div class="card-title">Google Drive Receipt Uploads (Apps Script Bridge)</div>
             <div class="card-subtitle">Upload receipt photos & PDFs directly into a folder in your Google Drive without OAuth popups, and store the Drive link on each log entry.</div>
           </div>
           <span id="gdStatusBadge" class="badge badge-primary">Not Configured</span>
@@ -337,13 +337,13 @@
         <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
             <button type="button" onclick="App.copyAppsScriptCode()" class="btn" title="Copy the Google Apps Script code to paste into script.google.com">
-              📋 Copy Apps Script Code
+              Copy Apps Script Code
             </button>
             <span style="font-size:0.76rem; color:var(--text-muted);">See <code>instructions.md</code> Section 4 for step-by-step Google Drive setup.</span>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" onclick="App.saveDriveSettings(true)" class="btn">💾 Save Drive Settings</button>
-            <button type="button" onclick="App.testDriveConnection()" class="btn btn-primary">🔌 Test Drive Connection</button>
+            <button type="button" onclick="App.saveDriveSettings(true)" class="btn">Save Drive Settings</button>
+            <button type="button" onclick="App.testDriveConnection()" class="btn btn-primary">Test Drive Connection</button>
           </div>
         </div>
       </div>
@@ -359,8 +359,8 @@
           </div>
           <div style="display:flex; flex-direction:column; gap:12px;">
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <button onclick="App.exportJsonBackup()" class="btn btn-primary">⬇ Download Full JSON Backup</button>
-              <button onclick="App.exportCsvLogs()" class="btn">📊 Export Logs to CSV</button>
+              <button onclick="App.exportJsonBackup()" class="btn btn-primary">Download Full JSON Backup</button>
+              <button onclick="App.exportCsvLogs()" class="btn">Export Logs to CSV</button>
             </div>
 
             <div style="border-top:1px solid var(--border); padding-top:12px;">
@@ -385,7 +385,7 @@
             <input type="file" id="xlsxFileInput" accept=".xlsx,.xls" onchange="App.handleXlsxImport(event)" class="input" />
             <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
               <span style="font-size:0.78rem; color:var(--text-muted);">Want to reset to the original spreadsheet state?</span>
-              <button onclick="App.resetToFactorySeed()" class="btn btn-danger">↺ Reset to Default Seed</button>
+              <button onclick="App.resetToFactorySeed()" class="btn btn-danger">Reset to Default Seed</button>
             </div>
           </div>
         </div>
@@ -398,7 +398,7 @@
             <div class="card-title">Garage (Multi-Vehicle Support)</div>
             <div class="card-subtitle">Add additional vehicles and switch between them on any screen</div>
           </div>
-          <button onclick="App.openVehicleModal(false)" class="btn btn-primary">＋ Add Vehicle</button>
+          <button onclick="App.openVehicleModal(false)" class="btn btn-primary">+ Add Vehicle</button>
         </div>
         <div id="garageList" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;"></div>
       </div>
@@ -409,19 +409,15 @@
   <!-- Mobile Bottom Navigation -->
   <nav class="mobile-nav">
     <button onclick="App.switchView('dashboard')" id="mtab-dashboard" class="mobile-tab active">
-      <span>📊</span>
       <span>Dashboard</span>
     </button>
     <button onclick="App.switchView('logs')" id="mtab-logs" class="mobile-tab">
-      <span>⛽</span>
       <span>History</span>
     </button>
     <button onclick="App.switchView('reminders')" id="mtab-reminders" class="mobile-tab">
-      <span>🔧</span>
       <span>Reminders</span>
     </button>
     <button onclick="App.switchView('data')" id="mtab-data" class="mobile-tab">
-      <span>💾</span>
       <span>Data</span>
     </button>
   </nav>
@@ -442,7 +438,7 @@
             <div style="display:flex; align-items:center; justify-content:space-between;">
               <label class="form-label">Vehicle</label>
               <button type="button" onclick="App.openVehicleFromLogModal()" style="background:none; border:none; color:var(--primary); font-size:0.76rem; font-weight:600; cursor:pointer;">
-                ＋ Add New Vehicle
+                + Add New Vehicle
               </button>
             </div>
             <select id="logVehicleId" onchange="App.onLogModalVehicleChange()" class="select" required></select>
@@ -451,9 +447,9 @@
           <div class="form-group">
             <label class="form-label">Event Type</label>
             <select id="logType" onchange="App.toggleLogTypeFields()" class="select" required>
-              <option value="fuel">⛽ Fuel Fill-Up</option>
-              <option value="maintenance">🔧 Maintenance</option>
-              <option value="repair">🛠️ Repair</option>
+              <option value="fuel">Fuel Fill-Up</option>
+              <option value="service">Service & Repairs</option>
+              <option value="other">Other (Tolls, Wash, Accessories, etc.)</option>
             </select>
           </div>
           <div class="form-group">
@@ -500,12 +496,12 @@
           </div>
         </div>
 
-        <!-- Maintenance / Repair Fields -->
+        <!-- Service / Other Fields -->
         <div id="serviceFieldsWrap" style="display:none;">
           <div class="form-grid">
             <div class="form-group">
-              <label class="form-label">Service / Part Item</label>
-              <input type="text" id="logServiceItem" class="input" placeholder="e.g. Oil & Filter Change, Fuel Filter" />
+              <label id="logServiceItemLabel" class="form-label">Service / Expense Description</label>
+              <input type="text" id="logServiceItem" class="input" placeholder="e.g. Oil Change, Brake Pads, Tolls, Car Wash" />
             </div>
             <div class="form-group">
               <label class="form-label">Total Cost ($)</label>
@@ -516,23 +512,23 @@
 
         <div class="form-group full" style="margin-top:12px;">
           <label class="form-label">Notes</label>
-          <input type="text" id="logNotes" class="input" placeholder="Optional rewards discount, part brand, warranty info..." />
+          <input type="text" id="logNotes" class="input" placeholder="Optional notes, warranty info, details..." />
         </div>
 
         <!-- Receipt Attachment (Google Drive Option 4A) -->
         <div id="logReceiptPanel" class="receipt-panel">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
             <div style="display:flex; align-items:center; gap:8px;">
-              <span class="form-label" style="color:var(--text); font-size:0.8rem;">🧾 Receipt Attachment</span>
+              <span class="form-label" style="color:var(--text); font-size:0.8rem;">Receipt Attachment</span>
               <span id="logReceiptStatusBadge" class="badge badge-primary">No Receipt</span>
             </div>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
               <input type="file" id="logReceiptFileInput" accept="image/*,application/pdf,.heic,.webp" onchange="App.onReceiptFileSelected(event)" style="display:none;" />
               <button type="button" onclick="document.getElementById('logReceiptFileInput').click()" class="btn" style="padding:5px 10px; font-size:0.76rem;">
-                📷 Choose Photo / PDF
+                Choose Photo / PDF
               </button>
               <button type="button" id="logReceiptUploadNowBtn" onclick="App.uploadPendingReceiptToDrive()" class="btn btn-primary" style="display:none; padding:5px 10px; font-size:0.76rem;">
-                ⬆️ Upload to Drive
+                Upload to Drive
               </button>
             </div>
           </div>
@@ -540,15 +536,15 @@
           <!-- Active / Queued Receipt Summary -->
           <div id="logReceiptInfoRow" style="display:none; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); font-size:0.8rem; flex-wrap:wrap;">
             <div style="display:flex; align-items:center; gap:6px; min-width:0;">
-              <span id="logReceiptInfoIcon">✅</span>
+              <span id="logReceiptInfoIcon" style="font-weight:700; color:var(--success);">[OK]</span>
               <strong id="logReceiptInfoName" class="mono" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:230px;">receipt.jpg</strong>
             </div>
             <div style="display:flex; gap:6px; align-items:center;">
               <a id="logReceiptOpenLink" href="#" target="_blank" rel="noopener noreferrer" class="btn" style="padding:3px 8px; font-size:0.74rem; display:none;">
-                ↗ Open in Drive
+                Open in Drive
               </a>
               <button type="button" onclick="App.clearLogReceipt()" class="btn btn-danger" style="padding:3px 8px; font-size:0.74rem;" title="Remove attached receipt">
-                ✕ Remove
+                Remove
               </button>
             </div>
           </div>

@@ -25,12 +25,12 @@ window.App = {
     }
     const btn = document.getElementById("themeToggleBtn");
     if (btn) {
-      btn.textContent = document.documentElement.classList.contains("light") ? "🌙" : "☀️";
+      btn.textContent = document.documentElement.classList.contains("light") ? "Dark Mode" : "Light Mode";
       btn.addEventListener("click", () => {
         document.documentElement.classList.toggle("light");
         const isLight = document.documentElement.classList.contains("light");
         localStorage.setItem("autopulse_theme", isLight ? "light" : "dark");
-        btn.textContent = isLight ? "🌙" : "☀️";
+        btn.textContent = isLight ? "Dark Mode" : "Light Mode";
       });
     }
   },
@@ -82,7 +82,7 @@ window.App = {
     const optionsHtml =
       this.vehicles
         .map((v) => `<option value="${v.id}" ${v.id === this.activeVehicleId ? "selected" : ""}>${this.escape(v.name)} (${this.escape(v.license || "No Plate")})</option>`)
-        .join("") + `<option value="__new__">＋ Add New Vehicle...</option>`;
+        .join("") + `<option value="__new__">+ Add New Vehicle...</option>`;
 
     const selectorIds = ["vehicleSelect", "dashboardVehicleSelect", "logsVehicleSelect", "remindersVehicleSelect"];
     selectorIds.forEach((id) => {
@@ -111,7 +111,7 @@ window.App = {
     el.innerHTML =
       this.vehicles
         .map((v) => `<option value="${v.id}" ${v.id === targetId ? "selected" : ""}>${this.escape(v.name)} (${this.escape(v.license || "No Plate")})</option>`)
-        .join("") + `<option value="__new__">＋ Add New Vehicle...</option>`;
+        .join("") + `<option value="__new__">+ Add New Vehicle...</option>`;
     el.value = targetId || "";
   },
 
@@ -248,7 +248,7 @@ window.App = {
       alertsHtml += `
         <div style="padding:12px; border-radius:12px; border:1px solid ${overdue ? "rgba(245,158,11,0.45)" : "var(--border)"}; background:${overdue ? "var(--warning-soft)" : "var(--bg)"};">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <strong style="font-size:0.84rem;">${overdue ? "⚠️ " : "🔧 "}${this.escape(r.title)}</strong>
+            <strong style="font-size:0.84rem;">${overdue ? "[Due] " : ""}${this.escape(r.title)}</strong>
             <span class="badge ${overdue ? "badge-warning" : "badge-success"}">${overdue ? "Due / Expired" : "Active"}</span>
           </div>
           <div style="font-size:0.78rem; color:var(--text-muted);">
@@ -262,7 +262,7 @@ window.App = {
     if (topStation && fuelLogs.length > 0) {
       alertsHtml += `
         <div style="padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--bg);">
-          <div style="font-weight:700; font-size:0.84rem; margin-bottom:4px;">🏪 Preferred Station</div>
+          <div style="font-weight:700; font-size:0.84rem; margin-bottom:4px;">Preferred Station</div>
           <div style="font-size:0.78rem; color:var(--text-muted);">
             <strong>${this.escape(topStation[0])}</strong> accounts for <strong>${topStation[1]} of ${fuelLogs.length}</strong> fill-ups (${((topStation[1] / fuelLogs.length) * 100).toFixed(1)}%).
           </div>
@@ -274,7 +274,7 @@ window.App = {
     alertsHtml += `
       <div style="padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--bg);">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <strong style="font-size:0.84rem;">🧾 Receipts Attached</strong>
+          <strong style="font-size:0.84rem;">Receipts Attached</strong>
           <span class="badge ${receiptsCount > 0 ? "badge-success" : "badge-primary"}">${receiptsCount} / ${this.computedLogs.length}</span>
         </div>
         <div style="font-size:0.78rem; color:var(--text-muted);">
@@ -342,12 +342,18 @@ window.App = {
       const attachedTotal = this.computedLogs.filter((l) => l.receipt && l.receipt.url).length;
       const missingTotal = this.computedLogs.length - attachedTotal;
       receiptFilterEl.options[0].textContent = `All Receipts (${this.computedLogs.length})`;
-      receiptFilterEl.options[1].textContent = `🧾 Has Receipt (${attachedTotal})`;
-      receiptFilterEl.options[2].textContent = `📭 No Receipt (${missingTotal})`;
+      receiptFilterEl.options[1].textContent = `Has Receipt (${attachedTotal})`;
+      receiptFilterEl.options[2].textContent = `No Receipt (${missingTotal})`;
     }
 
     const rows = [...this.computedLogs].reverse().filter((r) => {
-      if (typeFilter !== "all" && r.type !== typeFilter) return false;
+      if (typeFilter !== "all") {
+        if (typeFilter === "service") {
+          if (r.type !== "service" && r.type !== "maintenance" && r.type !== "repair") return false;
+        } else if (r.type !== typeFilter) {
+          return false;
+        }
+      }
       if (yearFilter !== "all" && !(r.date || "").startsWith(yearFilter)) return false;
       const hasReceipt = !!(r.receipt && r.receipt.url);
       if (receiptFilter === "attached" && !hasReceipt) return false;
@@ -367,17 +373,17 @@ window.App = {
 
     tbody.innerHTML = rows
       .map((r) => {
-        const typeBadge =
-          r.type === "fuel"
-            ? `<span class="badge badge-primary">⛽ Fuel</span>`
-            : r.type === "maintenance"
-            ? `<span class="badge badge-success">🔧 Maint</span>`
-            : `<span class="badge badge-warning">🛠️ Repair</span>`;
+        let typeBadge = `<span class="badge badge-primary">Fuel</span>`;
+        if (r.type === "service" || r.type === "maintenance" || r.type === "repair") {
+          typeBadge = `<span class="badge badge-success">Service</span>`;
+        } else if (r.type === "other") {
+          typeBadge = `<span class="badge badge-warning">Other</span>`;
+        }
 
         const details =
           r.type === "fuel"
             ? `${Number(r.volume || 0).toFixed(3)} gal @ $${Number(r.pricePerGal || 0).toFixed(3)}`
-            : this.escape(r.serviceItem || "Service");
+            : this.escape(r.serviceItem || (r.type === "other" ? "Expense" : "Service"));
 
         const mpgCell =
           r.type === "fuel" && r.mpg
@@ -386,8 +392,8 @@ window.App = {
 
         const hasReceipt = !!(r.receipt && r.receipt.url);
         const receiptCell = hasReceipt
-          ? `<a href="${this.escape(r.receipt.url)}" target="_blank" rel="noopener noreferrer" class="receipt-badge attached" title="View Receipt: ${this.escape(r.receipt.name || "Open in Google Drive")}">🧾 Attached ↗</a>`
-          : `<button type="button" onclick="App.openLogModal('${r.id}')" class="receipt-badge missing" title="No receipt attached — click to attach one">＋ Attach</button>`;
+          ? `<a href="${this.escape(r.receipt.url)}" target="_blank" rel="noopener noreferrer" class="receipt-badge attached" title="View Receipt: ${this.escape(r.receipt.name || "Open in Google Drive")}">Attached ↗</a>`
+          : `<button type="button" onclick="App.openLogModal('${r.id}')" class="receipt-badge missing" title="No receipt attached — click to attach one">+ Attach</button>`;
 
         return `
           <tr>
@@ -403,7 +409,7 @@ window.App = {
             <td style="color:var(--text-muted); max-width:220px;">${this.escape(r.notes || "—")}</td>
             <td class="text-right" style="white-space:nowrap;">
               <button onclick="App.openLogModal('${r.id}')" class="btn" style="padding:4px 8px; font-size:0.74rem;">Edit</button>
-              <button onclick="App.deleteLog('${r.id}')" class="btn btn-danger" style="padding:4px 8px; font-size:0.74rem;">✕</button>
+              <button onclick="App.deleteLog('${r.id}')" class="btn btn-danger" style="padding:4px 8px; font-size:0.74rem;">Delete</button>
             </td>
           </tr>
         `;
@@ -450,9 +456,9 @@ window.App = {
             </div>
             <p style="font-size:0.76rem; color:var(--text-muted); margin-top:10px;">${this.escape(r.notes || "")}</p>
             <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
-              <button onclick="App.completeReminderNow('${r.id}')" class="btn" style="padding:4px 10px; font-size:0.75rem;">✓ Mark Done Today</button>
+              <button onclick="App.completeReminderNow('${r.id}')" class="btn" style="padding:4px 10px; font-size:0.75rem;">Mark Done Today</button>
               <button onclick="App.openReminderModal('${r.id}')" class="btn" style="padding:4px 10px; font-size:0.75rem;">Edit</button>
-              <button onclick="App.deleteReminder('${r.id}')" class="btn btn-danger" style="padding:4px 10px; font-size:0.75rem;">✕</button>
+              <button onclick="App.deleteReminder('${r.id}')" class="btn btn-danger" style="padding:4px 10px; font-size:0.75rem;">Delete</button>
             </div>
           </div>
         `;
@@ -515,7 +521,9 @@ window.App = {
       document.getElementById("logModalTitle").textContent = "Edit Vehicle Event";
       document.getElementById("logId").value = item.id;
       this.populateModalVehicleSelect("logVehicleId", item.vehicleId);
-      document.getElementById("logType").value = item.type || "fuel";
+      let logType = item.type || "fuel";
+      if (logType === "maintenance" || logType === "repair") logType = "service";
+      document.getElementById("logType").value = logType;
       document.getElementById("logDate").value = item.date || today;
       document.getElementById("logOdometer").value = item.odometer || "";
       document.getElementById("logLocation").value = item.location || "";
@@ -584,20 +592,20 @@ window.App = {
     if (this.pendingReceiptFile) {
       panel.className = "receipt-panel queued-receipt";
       badge.className = "badge badge-warning";
-      badge.textContent = "📤 Ready to Upload";
+      badge.textContent = "Ready to Upload";
       uploadBtn.style.display = "inline-flex";
       infoRow.style.display = "flex";
-      infoIcon.textContent = "📎";
+      infoIcon.textContent = "[File]";
       const kb = Math.max(1, Math.round(this.pendingReceiptFile.size / 1024));
       infoName.textContent = `${this.pendingReceiptFile.name} (${kb} KB — uploads on Save)`;
       openLink.style.display = "none";
     } else if (urlVal) {
       panel.className = "receipt-panel has-receipt";
       badge.className = "badge badge-success";
-      badge.textContent = "✅ Receipt Attached";
+      badge.textContent = "Receipt Attached";
       uploadBtn.style.display = "none";
       infoRow.style.display = "flex";
-      infoIcon.textContent = "✅";
+      infoIcon.textContent = "[Attached]";
       infoName.textContent = nameVal || "Attached Google Drive Receipt";
       openLink.href = urlVal;
       openLink.style.display = "inline-flex";
@@ -677,7 +685,7 @@ window.App = {
 
     try {
       badge.className = "badge badge-warning";
-      badge.textContent = "⏳ Uploading to Drive...";
+      badge.textContent = "Uploading to Drive...";
       if (uploadBtn) uploadBtn.disabled = true;
       if (saveBtn) saveBtn.disabled = true;
 
@@ -722,7 +730,7 @@ window.App = {
       return receiptObj;
     } catch (err) {
       badge.className = "badge badge-danger";
-      badge.textContent = "⚠️ Upload Failed";
+      badge.textContent = "Upload Failed";
       alert("Google Drive Upload Failed: " + err.message);
       return null;
     } finally {
@@ -755,6 +763,16 @@ window.App = {
     document.getElementById("fuelFieldsWrap").style.display = isFuel ? "block" : "none";
     document.getElementById("serviceFieldsWrap").style.display = isFuel ? "none" : "block";
     document.getElementById("logTotalCost").required = isFuel;
+
+    const serviceItemLabel = document.getElementById("logServiceItemLabel");
+    const serviceItemInput = document.getElementById("logServiceItem");
+    if (t === "other") {
+      if (serviceItemLabel) serviceItemLabel.textContent = "Expense Description";
+      if (serviceItemInput) serviceItemInput.placeholder = "e.g. Tolls, Car Wash, Parking, Accessories";
+    } else {
+      if (serviceItemLabel) serviceItemLabel.textContent = "Service & Repair Description";
+      if (serviceItemInput) serviceItemInput.placeholder = "e.g. Oil Change, Brake Pads, Fuel Filter";
+    }
   },
 
   autoCalcFuelCost(changed) {
@@ -814,7 +832,7 @@ window.App = {
       entry.pricePerGal = Number(document.getElementById("logPpg").value) || 0;
       entry.fuelGrade = document.getElementById("logFuelGrade").value.trim() || "87 Gasoline";
     } else {
-      entry.serviceItem = document.getElementById("logServiceItem").value.trim() || "Service";
+      entry.serviceItem = document.getElementById("logServiceItem").value.trim() || (type === "other" ? "Expense" : "Service");
     }
 
     this.activeVehicleId = selectedVehicleId;
@@ -1382,7 +1400,7 @@ window.App = {
         }
       }
 
-      // 2. Events + Fuel
+      // 2. Events + Fuel + Maintenance/Repair
       const eventMap = {};
       if (wb.Sheets["Events"]) {
         const eRows = XLSX.utils.sheet_to_json(wb.Sheets["Events"]);
@@ -1411,6 +1429,30 @@ window.App = {
             totalCost: Number(f["Total Cost"]) || 0,
             volume: Number(f.Volume) || 0
           });
+        }
+      }
+
+      // Check for Maintenance or Repair sheets in workbook and import as combined "service"
+      for (const sheetName of ["Maintenance", "Repair", "Service"]) {
+        if (wb.Sheets[sheetName]) {
+          const sRows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+          for (const s of sRows) {
+            const odo = Number(s["Event ID"] || s.Odometer);
+            if (!odo) continue;
+            const ev = eventMap[String(odo)] || {};
+            const vehVin = ev["Vehicle ID"] || "1C4PJMCS1HW569660";
+            await AutoPulseDB.put("logs", {
+              id: String(s.ID || "S" + odo + "_" + (s["Item"] || sheetName)),
+              vehicleId: "veh_" + vehVin,
+              type: "service",
+              date: fmtDate(ev.Date || s.Date),
+              odometer: odo,
+              location: ev.Location || s.Shop || s.Location || "Service Shop",
+              notes: ev.Notes || s.Notes || "",
+              serviceItem: s.Item || s.Description || sheetName,
+              totalCost: Number(s.Cost || s["Total Cost"] || s.Amount) || 0
+            });
+          }
         }
       }
 
