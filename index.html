@@ -53,8 +53,11 @@
       <button onclick="App.switchView('dashboard')" id="dtab-dashboard" class="nav-tab active">
         Dashboard
       </button>
+      <button onclick="App.switchView('service-dashboard')" id="dtab-service-dashboard" class="nav-tab">
+        Service Records (<span id="serviceCountBadge">0</span>)
+      </button>
       <button onclick="App.switchView('logs')" id="dtab-logs" class="nav-tab">
-        Event History (<span id="logCountBadge">81</span>)
+        All History (<span id="logCountBadge">81</span>)
       </button>
       <button onclick="App.switchView('reminders')" id="dtab-reminders" class="nav-tab">
         Reminders
@@ -181,7 +184,52 @@
       </div>
     </section>
 
-    <!-- VIEW 2: EVENT LOGS -->
+    <!-- VIEW 2: DEDICATED SERVICE RECORDS DASHBOARD -->
+    <section id="view-service-dashboard" class="view-section">
+      <div class="card">
+        <div class="toolbar">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <span class="form-label">Vehicle:</span>
+            <select id="serviceDashboardVehicleSelect" class="vehicle-select" aria-label="Service Active Vehicle"></select>
+          </div>
+          <div style="flex:1; min-width:200px;">
+            <input id="serviceSearchInput" oninput="App.renderServiceDashboard()" type="search" class="input" placeholder="Search service, parts, shop, notes, or mileage..." />
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button onclick="App.openLogModal(null, 'service')" class="btn btn-primary">+ Log Service Visit</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Service KPI Summary -->
+      <div class="kpi-grid">
+        <div class="card">
+          <div class="kpi-label">Service Visits Recorded</div>
+          <div id="serviceKpiCount" class="kpi-value">0</div>
+          <div id="serviceKpiLastDate" class="kpi-foot">Latest: None</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Total Maintenance Spend</div>
+          <div id="serviceKpiSpend" class="kpi-value">$0.00</div>
+          <div class="kpi-foot">Excludes fuel & non-service</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Last Oil Change</div>
+          <div id="serviceKpiLastOil" class="kpi-value">—</div>
+          <div id="serviceKpiLastOilSub" class="kpi-foot">—</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Last Inspection</div>
+          <div id="serviceKpiLastInsp" class="kpi-value">—</div>
+          <div id="serviceKpiLastInspSub" class="kpi-foot">—</div>
+        </div>
+      </div>
+
+      <!-- Itemized Service Records Timeline / List -->
+      <div id="serviceRecordsList" style="display:flex; flex-direction:column; gap:16px;"></div>
+    </section>
+
+    <!-- VIEW 3: ALL EVENT LOGS -->
     <section id="view-logs" class="view-section">
       <div class="card">
         <div class="toolbar">
@@ -387,8 +435,12 @@
             </p>
             <input type="file" id="xlsxFileInput" accept=".xlsx,.xls" onchange="App.handleXlsxImport(event)" class="input" />
             <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
-              <span style="font-size:0.78rem; color:var(--text-muted);">Want to reset to the original spreadsheet state?</span>
+              <span style="font-size:0.78rem; color:var(--text-muted);">Want to reset to the default seed dataset (includes service history & reminders)?</span>
               <button onclick="App.resetToFactorySeed()" class="btn btn-danger">Reset to Default Seed</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
+              <span style="font-size:0.78rem; color:var(--text-muted);">Sync newly parsed service history from seed-data without clearing current logs:</span>
+              <button onclick="App.mergeParsedServiceHistory()" class="btn btn-primary">Import Service History from Seed</button>
             </div>
           </div>
         </div>
@@ -410,9 +462,12 @@
   </main>
 
   <!-- Mobile Bottom Navigation -->
-  <nav class="mobile-nav">
+  <nav class="mobile-nav" style="grid-template-columns: repeat(5, 1fr);">
     <button onclick="App.switchView('dashboard')" id="mtab-dashboard" class="mobile-tab active">
       <span>Dashboard</span>
+    </button>
+    <button onclick="App.switchView('service-dashboard')" id="mtab-service-dashboard" class="mobile-tab">
+      <span>Service</span>
     </button>
     <button onclick="App.switchView('logs')" id="mtab-logs" class="mobile-tab">
       <span>History</span>
@@ -503,13 +558,28 @@
         <div id="serviceFieldsWrap" style="display:none;">
           <div class="form-grid">
             <div class="form-group">
-              <label id="logServiceItemLabel" class="form-label">Service / Expense Description</label>
+              <label id="logServiceItemLabel" class="form-label">Service / Expense Summary</label>
               <input type="text" id="logServiceItem" class="input" placeholder="e.g. Oil Change, Brake Pads, Tolls, Car Wash" />
             </div>
             <div class="form-group">
               <label class="form-label">Total Cost ($)</label>
               <input type="number" id="logServiceCost" step="0.01" min="0" class="input" />
             </div>
+          </div>
+
+          <!-- Multi-item Checklist linked to Reminders -->
+          <div id="serviceChecklistSection" style="margin-top:12px; padding:12px; border-radius:10px; background:var(--bg); border:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span class="form-label" style="color:var(--text);">Services Performed on this Visit</span>
+              <span style="font-size:0.74rem; color:var(--text-muted);">Checked items will update their reminder intervals</span>
+            </div>
+            <div id="serviceRemindersChecklist" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:6px; font-size:0.8rem;"></div>
+            
+            <div style="display:flex; gap:8px; margin-top:10px;">
+              <input type="text" id="customServiceLineInput" class="input" style="font-size:0.78rem; padding:6px 10px;" placeholder="Add other service item (e.g. Battery replacement)..." />
+              <button type="button" onclick="App.addCustomServiceLine()" class="btn" style="padding:4px 10px; font-size:0.76rem; white-space:nowrap;">+ Add Item</button>
+            </div>
+            <div id="serviceCustomLinesList" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
           </div>
         </div>
 

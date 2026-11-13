@@ -8,6 +8,7 @@ window.App = {
   deferredInstallPrompt: null,
   returnToLogModalAfterVehicleAdd: false,
   pendingReceiptFile: null,
+  customServiceLines: [],
 
   async init() {
     this.initTheme();
@@ -84,7 +85,7 @@ window.App = {
         .map((v) => `<option value="${v.id}" ${v.id === this.activeVehicleId ? "selected" : ""}>${this.escape(v.name)} (${this.escape(v.license || "No Plate")})</option>`)
         .join("") + `<option value="__new__">+ Add New Vehicle...</option>`;
 
-    const selectorIds = ["vehicleSelect", "dashboardVehicleSelect", "logsVehicleSelect", "remindersVehicleSelect"];
+    const selectorIds = ["vehicleSelect", "dashboardVehicleSelect", "serviceDashboardVehicleSelect", "logsVehicleSelect", "remindersVehicleSelect"];
     selectorIds.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -164,8 +165,13 @@ window.App = {
     document.getElementById("headerOdo").textContent = Number(latestOdo).toLocaleString() + " mi";
     document.getElementById("logCountBadge").textContent = this.computedLogs.length;
 
+    const serviceLogsCount = this.computedLogs.filter((l) => l.type === "service" || l.type === "maintenance" || l.type === "repair").length;
+    const sBadge = document.getElementById("serviceCountBadge");
+    if (sBadge) sBadge.textContent = serviceLogsCount;
+
     this.populateYearFilter();
     this.renderDashboard(vehicle, latestOdo);
+    this.renderServiceDashboard();
     this.renderLogsTable();
     this.renderReminders(vehicle, latestOdo);
     this.renderGarage();
@@ -417,6 +423,114 @@ window.App = {
       .join("");
   },
 
+  renderServiceDashboard() {
+    const container = document.getElementById("serviceRecordsList");
+    if (!container) return;
+
+    const q = (document.getElementById("serviceSearchInput") ? document.getElementById("serviceSearchInput").value : "").toLowerCase().trim();
+    const serviceLogs = this.computedLogs
+      .filter((l) => l.type === "service" || l.type === "maintenance" || l.type === "repair")
+      .sort((a, b) => Number(b.odometer) - Number(a.odometer) || String(b.date || "").localeCompare(String(a.date || "")));
+
+    // Update KPI cards
+    const totalCount = serviceLogs.length;
+    const totalSpend = serviceLogs.reduce((sum, l) => sum + (Number(l.totalCost) || 0), 0);
+    const lastVisit = serviceLogs[0];
+
+    const countEl = document.getElementById("serviceKpiCount");
+    const lastDateEl = document.getElementById("serviceKpiLastDate");
+    const spendEl = document.getElementById("serviceKpiSpend");
+
+    if (countEl) countEl.textContent = totalCount;
+    if (lastDateEl) lastDateEl.textContent = lastVisit ? `Latest: ${lastVisit.date} @ ${Number(lastVisit.odometer).toLocaleString()} mi` : "Latest: None";
+    if (spendEl) spendEl.textContent = "$" + totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    // Last oil change
+    const lastOil = serviceLogs.find((l) => {
+      const matchItem = l.serviceItem && l.serviceItem.toLowerCase().includes("oil");
+      const matchServices = Array.isArray(l.services) && l.services.some((s) => s.toLowerCase().includes("oil"));
+      return matchItem || matchServices;
+    });
+    const lastOilEl = document.getElementById("serviceKpiLastOil");
+    const lastOilSubEl = document.getElementById("serviceKpiLastOilSub");
+    if (lastOilEl && lastOil) {
+      lastOilEl.textContent = `${Number(lastOil.odometer).toLocaleString()} mi`;
+      if (lastOilSubEl) lastOilSubEl.textContent = `${lastOil.date} (${this.escape(lastOil.location || "Shop")})`;
+    } else if (lastOilEl) {
+      lastOilEl.textContent = "—";
+      if (lastOilSubEl) lastOilSubEl.textContent = "No oil change recorded";
+    }
+
+    // Last inspection
+    const lastInsp = serviceLogs.find((l) => {
+      const matchItem = l.serviceItem && (l.serviceItem.toLowerCase().includes("inspection") || l.serviceItem.toLowerCase().includes("emissions"));
+      const matchServices = Array.isArray(l.services) && l.services.some((s) => s.toLowerCase().includes("inspection") || s.toLowerCase().includes("emissions"));
+      return matchItem || matchServices;
+    });
+    const lastInspEl = document.getElementById("serviceKpiLastInsp");
+    const lastInspSubEl = document.getElementById("serviceKpiLastInspSub");
+    if (lastInspEl && lastInsp) {
+      lastInspEl.textContent = lastInsp.date;
+      if (lastInspSubEl) lastInspSubEl.textContent = `${Number(lastInsp.odometer).toLocaleString()} mi (${this.escape(lastInsp.location || "Shop")})`;
+    } else if (lastInspEl) {
+      lastInspEl.textContent = "—";
+      if (lastInspSubEl) lastInspSubEl.textContent = "No inspection recorded";
+    }
+
+    // Filter by search
+    const filtered = serviceLogs.filter((l) => {
+      if (!q) return true;
+      const servicesStr = Array.isArray(l.services) ? l.services.join(" ") : "";
+      const hay = `${l.date} ${l.odometer} ${l.location || ""} ${l.serviceItem || ""} ${l.notes || ""} ${servicesStr}`.toLowerCase();
+      return hay.includes(q);
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="card"><p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:16px;">No service records found. Click "+ Log Service Visit" to log your first service visit.</p></div>`;
+      return;
+    }
+
+    container.innerHTML = filtered.map((l) => {
+      const servicesList = Array.isArray(l.services) && l.services.length > 0
+        ? l.services
+        : (l.serviceItem ? [l.serviceItem] : ["General Service"]);
+
+      const badgesHtml = servicesList.map((s) => `<span class="badge badge-success" style="font-size:0.76rem; padding:3px 8px;">${this.escape(s)}</span>`).join(" ");
+
+      const receiptHtml = l.receipt && l.receipt.url
+        ? `<a href="${this.escape(l.receipt.url)}" target="_blank" rel="noopener noreferrer" class="receipt-badge attached" style="font-size:0.75rem;">🧾 Receipt ↗</a>`
+        : `<button type="button" onclick="App.openLogModal('${l.id}')" class="receipt-badge missing" style="font-size:0.75rem;">+ Attach Receipt</button>`;
+
+      return `
+        <div class="card" style="border-left: 4px solid var(--success);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <strong style="font-size:1.02rem;">${this.escape(l.serviceItem || "Vehicle Service Visit")}</strong>
+                <span class="plate-badge" style="background:var(--success-soft); color:var(--success); border-color:rgba(16,185,129,0.3); font-size:0.78rem;">${this.escape(l.location || "Shop")}</span>
+              </div>
+              <div class="mono" style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">
+                ${this.escape(l.date)} &bull; <strong>${Number(l.odometer).toLocaleString()} mi</strong>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="mono" style="font-size:1.1rem; font-weight:800; color:var(--text);">${Number(l.totalCost) > 0 ? "$" + Number(l.totalCost).toFixed(2) : "—"}</span>
+              ${receiptHtml}
+              <button onclick="App.openLogModal('${l.id}')" class="btn" style="padding:4px 8px; font-size:0.74rem;">Edit</button>
+              <button onclick="App.deleteLog('${l.id}')" class="btn btn-danger" style="padding:4px 8px; font-size:0.74rem;">Delete</button>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+            ${badgesHtml}
+          </div>
+
+          ${l.notes ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-top:8px;">${this.escape(l.notes)}</div>` : ""}
+        </div>
+      `;
+    }).join("");
+  },
+
   renderReminders(vehicle, latestOdo) {
     const grid = document.getElementById("remindersGrid");
     const vehRems = this.reminders.filter((r) => r.vehicleId === vehicle.id);
@@ -449,6 +563,27 @@ window.App = {
           intervalDisplay = `Every ${r.intervalMonths} mo`;
         }
 
+        // Find last matching service record for this reminder
+        const lastRecord = [...this.computedLogs].reverse().find((l) => {
+          if (l.type !== "service" && l.type !== "maintenance") return false;
+          if (Array.isArray(l.services) && l.services.some((s) => s.toLowerCase() === r.title.toLowerCase())) return true;
+          if (l.serviceItem && l.serviceItem.toLowerCase().includes(r.title.toLowerCase())) return true;
+          return false;
+        });
+
+        let lastServiceHtml = "";
+        if (lastRecord) {
+          const recLink = lastRecord.receipt && lastRecord.receipt.url
+            ? `<a href="${this.escape(lastRecord.receipt.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary); text-decoration:none; margin-left:6px;">Receipt ↗</a>`
+            : "";
+          lastServiceHtml = `
+            <div class="kv-row" style="background:var(--card-hover); padding:4px 6px; border-radius:6px; margin-top:4px;">
+              <span class="kv-key">Last Completed</span>
+              <span class="kv-val" style="font-size:0.75rem;">${this.escape(lastRecord.date)} @ ${Number(lastRecord.odometer).toLocaleString()} mi (${this.escape(lastRecord.location || "Shop")})${recLink}</span>
+            </div>
+          `;
+        }
+
         return `
           <div class="card" style="border-color:${overdue ? "rgba(245,158,11,0.5)" : "var(--border)"};">
             <div class="card-header">
@@ -460,6 +595,7 @@ window.App = {
               <div class="kv-row"><span class="kv-key">Start Date</span><span class="kv-val mono">${this.escape(r.startDate || "—")}</span></div>
               <div class="kv-row"><span class="kv-key">Target Due Date</span><span class="kv-val mono" style="color:${isDateDue ? "var(--warning)" : "inherit"}">${this.escape(r.dueDate || "—")}</span></div>
               <div class="kv-row"><span class="kv-key">Target Odometer</span><span class="kv-val mono">${r.dueOdometer ? Number(r.dueOdometer).toLocaleString() + " mi" : "—"}</span></div>
+              ${lastServiceHtml}
             </div>
             <div class="progress-bar">
               <div class="progress-fill" style="width:${pct}%; background:${overdue ? "var(--warning)" : "var(--success)"};"></div>
@@ -508,20 +644,25 @@ window.App = {
   },
 
   switchView(view) {
-    ["dashboard", "logs", "reminders", "data"].forEach((v) => {
-      document.getElementById("view-" + v).classList.toggle("active", v === view);
+    ["dashboard", "service-dashboard", "logs", "reminders", "data"].forEach((v) => {
+      const section = document.getElementById("view-" + v);
+      if (section) section.classList.toggle("active", v === view);
       const dtab = document.getElementById("dtab-" + v);
       const mtab = document.getElementById("mtab-" + v);
       if (dtab) dtab.classList.toggle("active", v === view);
       if (mtab) mtab.classList.toggle("active", v === view);
     });
+    if (view === "service-dashboard") {
+      this.renderServiceDashboard();
+    }
   },
 
   // Modals & Forms
-  openLogModal(editId = null) {
+  openLogModal(editId = null, forcedType = null) {
     const modal = document.getElementById("logModal");
     const today = new Date().toISOString().slice(0, 10);
     this.pendingReceiptFile = null;
+    this.customServiceLines = [];
     const fileInput = document.getElementById("logReceiptFileInput");
     if (fileInput) fileInput.value = "";
 
@@ -545,15 +686,20 @@ window.App = {
       document.getElementById("logServiceCost").value = item.totalCost || "";
       document.getElementById("logNotes").value = item.notes || "";
       this.setModalReceiptFields(item.receipt || null);
+
+      if (Array.isArray(item.services)) {
+        this.customServiceLines = [...item.services];
+      }
     } else {
-      const latestOdo = this.getLatestOdometerForVehicle(this.activeVehicleId);
+      const targetVehicleId = this.activeVehicleId;
+      const latestOdo = this.getLatestOdometerForVehicle(targetVehicleId);
       document.getElementById("logModalTitle").textContent = "Log Vehicle Event";
       document.getElementById("logId").value = "";
-      this.populateModalVehicleSelect("logVehicleId", this.activeVehicleId);
-      document.getElementById("logType").value = "fuel";
+      this.populateModalVehicleSelect("logVehicleId", targetVehicleId);
+      document.getElementById("logType").value = forcedType || "fuel";
       document.getElementById("logDate").value = today;
-      document.getElementById("logOdometer").value = latestOdo + 300;
-      document.getElementById("logLocation").value = "7 Eleven";
+      document.getElementById("logOdometer").value = latestOdo + (forcedType === "service" ? 0 : 300);
+      document.getElementById("logLocation").value = forcedType === "service" ? "Park Maple City Dodge" : "7 Eleven";
       document.getElementById("logVolume").value = "";
       document.getElementById("logPpg").value = "";
       document.getElementById("logTotalCost").value = "";
@@ -565,7 +711,69 @@ window.App = {
     }
 
     this.toggleLogTypeFields();
+    this.renderServiceChecklistInModal(editId);
     modal.classList.add("open");
+  },
+
+  renderServiceChecklistInModal(editId = null) {
+    const container = document.getElementById("serviceRemindersChecklist");
+    if (!container) return;
+    const vehId = document.getElementById("logVehicleId").value || this.activeVehicleId;
+    const vehReminders = this.reminders.filter((r) => r.vehicleId === vehId);
+
+    const existingLog = editId ? this.logs.find((l) => l.id === editId) : null;
+    const existingServices = existingLog && Array.isArray(existingLog.services) ? existingLog.services : [];
+
+    container.innerHTML = vehReminders.map((r) => {
+      const isChecked = existingServices.some((s) => s.toLowerCase() === r.title.toLowerCase()) || false;
+      return `
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:3px 0;">
+          <input type="checkbox" name="serviceReminderItem" value="${this.escape(r.title)}" data-rem-id="${r.id}" ${isChecked ? "checked" : ""} onchange="App.onServiceChecklistChange()" />
+          <span>${this.escape(r.title)}</span>
+        </label>
+      `;
+    }).join("");
+
+    this.renderCustomServiceLinesList();
+  },
+
+  onServiceChecklistChange() {
+    const checked = Array.from(document.querySelectorAll("input[name='serviceReminderItem']:checked")).map((el) => el.value);
+    const allServices = [...checked, ...this.customServiceLines];
+    const summaryInput = document.getElementById("logServiceItem");
+    if (summaryInput && (!summaryInput.value.trim() || summaryInput.dataset.autoSummary === "true")) {
+      summaryInput.value = allServices.join(", ");
+      summaryInput.dataset.autoSummary = "true";
+    }
+  },
+
+  addCustomServiceLine() {
+    const input = document.getElementById("customServiceLineInput");
+    const val = (input.value || "").trim();
+    if (!val) return;
+    if (!this.customServiceLines.includes(val)) {
+      this.customServiceLines.push(val);
+      this.renderCustomServiceLinesList();
+      this.onServiceChecklistChange();
+    }
+    input.value = "";
+  },
+
+  removeCustomServiceLine(idx) {
+    this.customServiceLines.splice(idx, 1);
+    this.renderCustomServiceLinesList();
+    this.onServiceChecklistChange();
+  },
+
+  renderCustomServiceLinesList() {
+    const container = document.getElementById("serviceCustomLinesList");
+    if (!container) return;
+    container.innerHTML = this.customServiceLines.map((line, idx) => `
+      <span class="badge badge-primary" style="display:inline-flex; align-items:center; gap:5px; font-size:0.75rem;">
+        ${this.escape(line)}
+        <button type="button" onclick="App.removeCustomServiceLine(${idx})" style="background:none; border:none; color:inherit; font-weight:700; cursor:pointer; padding:0 2px;">✕</button>
+      </span>
+    `).join("");
   },
 
   setModalReceiptFields(receipt) {
@@ -774,13 +982,17 @@ window.App = {
     document.getElementById("serviceFieldsWrap").style.display = isFuel ? "none" : "block";
     document.getElementById("logTotalCost").required = isFuel;
 
+    const checklistSection = document.getElementById("serviceChecklistSection");
     const serviceItemLabel = document.getElementById("logServiceItemLabel");
     const serviceItemInput = document.getElementById("logServiceItem");
+
     if (t === "other") {
+      if (checklistSection) checklistSection.style.display = "none";
       if (serviceItemLabel) serviceItemLabel.textContent = "Expense Description";
       if (serviceItemInput) serviceItemInput.placeholder = "e.g. Tolls, Car Wash, Parking, Accessories";
     } else {
-      if (serviceItemLabel) serviceItemLabel.textContent = "Service & Repair Description";
+      if (checklistSection) checklistSection.style.display = "block";
+      if (serviceItemLabel) serviceItemLabel.textContent = "Service & Repair Summary";
       if (serviceItemInput) serviceItemInput.placeholder = "e.g. Oil Change, Brake Pads, Fuel Filter";
     }
   },
@@ -843,6 +1055,29 @@ window.App = {
       entry.fuelGrade = document.getElementById("logFuelGrade").value.trim() || "87 Gasoline";
     } else {
       entry.serviceItem = document.getElementById("logServiceItem").value.trim() || (type === "other" ? "Expense" : "Service");
+      if (type === "service") {
+        const checkedBoxes = Array.from(document.querySelectorAll("input[name='serviceReminderItem']:checked"));
+        const checkedServices = checkedBoxes.map((el) => el.value);
+        entry.services = Array.from(new Set([...checkedServices, ...this.customServiceLines]));
+
+        // One-way advance for all checked reminders!
+        for (const cb of checkedBoxes) {
+          const remId = cb.dataset.remId;
+          const r = this.reminders.find((x) => x.id === remId);
+          if (r) {
+            r.startDate = entry.date;
+            r.startOdometer = entry.odometer;
+            const months = r.intervalMonths || 12;
+            const nextDate = new Date(entry.date + "T00:00:00");
+            nextDate.setMonth(nextDate.getMonth() + months);
+            r.dueDate = nextDate.toISOString().slice(0, 10);
+            if (r.intervalMiles) {
+              r.dueOdometer = entry.odometer + r.intervalMiles;
+            }
+            await AutoPulseDB.put("reminders", r);
+          }
+        }
+      }
     }
 
     this.activeVehicleId = selectedVehicleId;
@@ -851,7 +1086,7 @@ window.App = {
     await AutoPulseDB.put("logs", entry);
     this.closeModal("logModal");
     await this.reloadAllData();
-    this.showToast("Event saved to device storage");
+    this.showToast("Event saved & reminders updated");
     this.triggerAutoSyncIfEnabled();
   },
 
@@ -1618,6 +1853,22 @@ window.App = {
       alert("Error importing Excel file: " + err.message);
     }
     event.target.value = "";
+  },
+
+  async mergeParsedServiceHistory() {
+    if (!window.SEED_DATA || !window.SEED_DATA.logs) return;
+    const serviceSeedLogs = window.SEED_DATA.logs.filter((l) => l.type === "service" || l.type === "other");
+    let addedCount = 0;
+    for (const s of serviceSeedLogs) {
+      const exists = this.logs.some((l) => l.id === s.id);
+      if (!exists) {
+        await AutoPulseDB.put("logs", s);
+        addedCount++;
+      }
+    }
+    await this.reloadAllData();
+    this.showToast(`Imported ${addedCount} historical service visits!`);
+    this.triggerAutoSyncIfEnabled();
   },
 
   async resetToFactorySeed() {
