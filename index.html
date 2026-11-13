@@ -245,7 +245,10 @@
             </div>
             <select id="remindersVehicleSelect" class="vehicle-select" aria-label="Reminders Active Vehicle"></select>
           </div>
-          <button onclick="App.openReminderModal()" class="btn btn-primary">+ New Reminder</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button onclick="App.seedStandardRemindersForVehicle()" class="btn" title="Add standard Jeep Cherokee maintenance schedule">Add Standard Maintenance Schedule</button>
+            <button onclick="App.openReminderModal()" class="btn btn-primary">+ New Reminder</button>
+          </div>
         </div>
       </div>
 
@@ -585,8 +588,16 @@
             <input type="text" id="remTitle" class="input" placeholder="e.g. Fuel Filter, Engine Oil, Tire Rotation" required />
           </div>
           <div class="form-group">
+            <label class="form-label">Interval (Miles)</label>
+            <input type="number" id="remIntervalMiles" oninput="App.onReminderIntervalChange()" class="input" placeholder="e.g. 5000" step="100" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Interval (Months)</label>
+            <input type="number" id="remIntervalMonths" oninput="App.onReminderIntervalChange()" class="input" placeholder="e.g. 6 or 12" step="1" min="0" />
+          </div>
+          <div class="form-group">
             <label class="form-label">Start / Last Done Date</label>
-            <input type="date" id="remStartDate" class="input" />
+            <input type="date" id="remStartDate" onchange="App.onReminderIntervalChange()" class="input" />
           </div>
           <div class="form-group">
             <label class="form-label">Target Due Date</label>
@@ -594,7 +605,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">Last Done Odometer (mi)</label>
-            <input type="number" id="remStartOdo" class="input" placeholder="e.g. 24809" />
+            <input type="number" id="remStartOdo" oninput="App.onReminderIntervalChange()" class="input" placeholder="e.g. 24809" />
           </div>
           <div class="form-group">
             <label class="form-label">Target Due Odometer (mi)</label>

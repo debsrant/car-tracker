@@ -440,6 +440,15 @@ window.App = {
           pct = 100;
         }
 
+        let intervalDisplay = "";
+        if (r.intervalMiles && r.intervalMonths) {
+          intervalDisplay = `Every ${Number(r.intervalMiles).toLocaleString()} mi / ${r.intervalMonths} mo`;
+        } else if (r.intervalMiles) {
+          intervalDisplay = `Every ${Number(r.intervalMiles).toLocaleString()} mi`;
+        } else if (r.intervalMonths) {
+          intervalDisplay = `Every ${r.intervalMonths} mo`;
+        }
+
         return `
           <div class="card" style="border-color:${overdue ? "rgba(245,158,11,0.5)" : "var(--border)"};">
             <div class="card-header">
@@ -447,6 +456,7 @@ window.App = {
               <span class="badge ${overdue ? "badge-warning" : "badge-success"}">${overdue ? "Due / Expired" : "On Track"}</span>
             </div>
             <div class="kv-list">
+              ${intervalDisplay ? `<div class="kv-row"><span class="kv-key">Frequency Interval</span><span class="kv-val" style="color:var(--primary); font-weight:700;">${this.escape(intervalDisplay)}</span></div>` : ""}
               <div class="kv-row"><span class="kv-key">Start Date</span><span class="kv-val mono">${this.escape(r.startDate || "—")}</span></div>
               <div class="kv-row"><span class="kv-key">Target Due Date</span><span class="kv-val mono" style="color:${isDateDue ? "var(--warning)" : "inherit"}">${this.escape(r.dueDate || "—")}</span></div>
               <div class="kv-row"><span class="kv-key">Target Odometer</span><span class="kv-val mono">${r.dueOdometer ? Number(r.dueOdometer).toLocaleString() + " mi" : "—"}</span></div>
@@ -853,6 +863,22 @@ window.App = {
     this.triggerAutoSyncIfEnabled();
   },
 
+  onReminderIntervalChange() {
+    const miles = Number(document.getElementById("remIntervalMiles").value);
+    const months = Number(document.getElementById("remIntervalMonths").value);
+    const startOdo = Number(document.getElementById("remStartOdo").value);
+    const startDateVal = document.getElementById("remStartDate").value;
+
+    if (miles > 0 && startOdo > 0) {
+      document.getElementById("remDueOdo").value = startOdo + miles;
+    }
+    if (months > 0 && startDateVal) {
+      const d = new Date(startDateVal + "T00:00:00");
+      d.setMonth(d.getMonth() + months);
+      document.getElementById("remDueDate").value = d.toISOString().slice(0, 10);
+    }
+  },
+
   openReminderModal(editId = null) {
     const modal = document.getElementById("reminderModal");
     const today = new Date().toISOString().slice(0, 10);
@@ -862,6 +888,8 @@ window.App = {
       document.getElementById("remId").value = r.id;
       this.populateModalVehicleSelect("remVehicleId", r.vehicleId);
       document.getElementById("remTitle").value = r.title || "";
+      document.getElementById("remIntervalMiles").value = r.intervalMiles || "";
+      document.getElementById("remIntervalMonths").value = r.intervalMonths || "";
       document.getElementById("remStartDate").value = r.startDate || "";
       document.getElementById("remDueDate").value = r.dueDate || "";
       document.getElementById("remStartOdo").value = r.startOdometer || "";
@@ -871,10 +899,15 @@ window.App = {
       document.getElementById("remId").value = "";
       this.populateModalVehicleSelect("remVehicleId", this.activeVehicleId);
       document.getElementById("remTitle").value = "";
+      document.getElementById("remIntervalMiles").value = "5000";
+      document.getElementById("remIntervalMonths").value = "12";
       document.getElementById("remStartDate").value = today;
-      document.getElementById("remDueDate").value = "";
-      document.getElementById("remStartOdo").value = this.getLatestOdometerForVehicle(this.activeVehicleId) || "";
-      document.getElementById("remDueOdo").value = "";
+      const nextYear = new Date();
+      nextYear.setFullYear(nextYear.getFullYear() + 1);
+      document.getElementById("remDueDate").value = nextYear.toISOString().slice(0, 10);
+      const curOdo = this.getLatestOdometerForVehicle(this.activeVehicleId) || 0;
+      document.getElementById("remStartOdo").value = curOdo;
+      document.getElementById("remDueOdo").value = curOdo + 5000;
       document.getElementById("remNotes").value = "";
     }
 
@@ -893,10 +926,14 @@ window.App = {
     e.preventDefault();
     const id = document.getElementById("remId").value || "rem_" + Date.now().toString(36);
     const selectedVehicleId = document.getElementById("remVehicleId").value || this.activeVehicleId;
+    const intervalMiles = Number(document.getElementById("remIntervalMiles").value) || null;
+    const intervalMonths = Number(document.getElementById("remIntervalMonths").value) || null;
     const rem = {
       id,
       vehicleId: selectedVehicleId,
       title: document.getElementById("remTitle").value.trim(),
+      intervalMiles,
+      intervalMonths,
       startDate: document.getElementById("remStartDate").value || null,
       dueDate: document.getElementById("remDueDate").value || null,
       startOdometer: Number(document.getElementById("remStartOdo").value) || null,
@@ -919,18 +956,121 @@ window.App = {
     const todayStr = today.toISOString().slice(0, 10);
     const latestOdo = this.computedLogs.length ? this.computedLogs[this.computedLogs.length - 1].odometer : 0;
 
-    const nextDate = new Date(today);
-    nextDate.setFullYear(nextDate.getFullYear() + 1);
-
     r.startDate = todayStr;
-    r.dueDate = nextDate.toISOString().slice(0, 10);
     r.startOdometer = latestOdo;
-    if (r.dueOdometer) {
-      r.dueOdometer = latestOdo + (r.intervalMiles || 5000);
+
+    const months = r.intervalMonths || 12;
+    const nextDate = new Date(today);
+    nextDate.setMonth(nextDate.getMonth() + months);
+    r.dueDate = nextDate.toISOString().slice(0, 10);
+
+    if (r.intervalMiles) {
+      r.dueOdometer = latestOdo + r.intervalMiles;
+    } else if (r.dueOdometer) {
+      r.dueOdometer = latestOdo + 5000;
     }
+
     await AutoPulseDB.put("reminders", r);
     await this.reloadAllData();
     this.showToast(`Reset ${r.title} interval from today`);
+    this.triggerAutoSyncIfEnabled();
+  },
+
+  async seedStandardRemindersForVehicle() {
+    const veh = this.getActiveVehicle();
+    if (!veh) return;
+    if (!confirm(`Add standard OEM recommended maintenance intervals for ${veh.name}? (Existing reminders will be preserved)`)) return;
+
+    const standardReminders = [
+      {
+        title: "Engine Oil & Filter",
+        intervalMiles: 5000,
+        intervalMonths: 12,
+        notes: "OEM Spec: Change oil and filter every 5,000-7,500 mi or 12 months (Max 10,000 mi)."
+      },
+      {
+        title: "Tire Rotation & Brake Inspection",
+        intervalMiles: 5000,
+        intervalMonths: 12,
+        notes: "Rotate tires at every oil change interval; inspect brake linings, drums, and pads."
+      },
+      {
+        title: "Cabin Air Filter (A/C)",
+        intervalMiles: 20000,
+        intervalMonths: 24,
+        notes: "OEM Spec: Replace cabin air / particulate filter every 20,000 mi or 24 months."
+      },
+      {
+        title: "Engine Air Cleaner Filter",
+        intervalMiles: 30000,
+        intervalMonths: 36,
+        notes: "OEM Spec: Replace engine air cleaner filter every 30,000 mi or 36 months."
+      },
+      {
+        title: "Brake Fluid Flush",
+        intervalMiles: 20000,
+        intervalMonths: 24,
+        notes: "Inspect and flush moisture-sensitive DOT 3 / DOT 4 brake fluid every 24 months."
+      },
+      {
+        title: "Spark Plugs (2.4L / 3.2L)",
+        intervalMiles: 100000,
+        intervalMonths: 120,
+        notes: "OEM Spec: Replace spark plugs at 100,000 miles or 10 years (30k mi if 2.4L PZEV)."
+      },
+      {
+        title: "Engine Coolant Flush (OAT 10-Yr)",
+        intervalMiles: 150000,
+        intervalMonths: 120,
+        notes: "OEM Mopar OAT Coolant: Flush and replace at 150,000 miles or 10 years."
+      },
+      {
+        title: "Transfer Case / PTU / RDM Fluid (4WD)",
+        intervalMiles: 60000,
+        intervalMonths: 72,
+        notes: "Inspect & service Power Transfer Unit (PTU) and Rear Drive Module (RDM) fluid under severe/frequent 4WD use."
+      },
+      {
+        title: "State Safety & Emissions Inspection",
+        intervalMiles: null,
+        intervalMonths: 12,
+        notes: "Annual state safety and emissions inspection (New York DMV)."
+      },
+      {
+        title: "Windshield & Rear Wiper Blades",
+        intervalMiles: null,
+        intervalMonths: 12,
+        notes: "Replace front (26-in driver, 18-in passenger) and rear (14-in) wiper blades annually or when streaking."
+      }
+    ];
+
+    const curOdo = this.getLatestOdometerForVehicle(veh.id) || 0;
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+
+    for (const item of standardReminders) {
+      const exists = this.reminders.some((r) => r.vehicleId === veh.id && r.title.toLowerCase() === item.title.toLowerCase());
+      if (exists) continue;
+
+      const dueD = new Date(today);
+      if (item.intervalMonths) dueD.setMonth(dueD.getMonth() + item.intervalMonths);
+
+      await AutoPulseDB.put("reminders", {
+        id: "rem_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6),
+        vehicleId: veh.id,
+        title: item.title,
+        intervalMiles: item.intervalMiles,
+        intervalMonths: item.intervalMonths,
+        startDate: todayStr,
+        dueDate: item.intervalMonths ? dueD.toISOString().slice(0, 10) : null,
+        startOdometer: curOdo,
+        dueOdometer: item.intervalMiles ? curOdo + item.intervalMiles : null,
+        notes: item.notes
+      });
+    }
+
+    await this.reloadAllData();
+    this.showToast(`Standard maintenance schedule added for ${veh.name}!`);
     this.triggerAutoSyncIfEnabled();
   },
 
