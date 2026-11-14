@@ -124,7 +124,7 @@ window.App = {
     return Math.max(initOdo, ...vehLogs.map((l) => Number(l.odometer) || 0));
   },
 
-  computeAndRenderActiveVehicle() {
+  async computeAndRenderActiveVehicle() {
     const vehicle = this.getActiveVehicle();
     if (!vehicle) return;
 
@@ -154,6 +154,9 @@ window.App = {
 
       return { ...log, delta, mpg, costPerMile };
     });
+
+    // Ensure all reminder cards reflect the most current service record rather than the last edited record
+    await this.syncRemindersToLatestServiceRecords(vehicle.id);
 
     const latestOdo = this.computedLogs.length > 0
       ? this.computedLogs[this.computedLogs.length - 1].odometer
@@ -423,7 +426,55 @@ window.App = {
       .join("");
   },
 
-  renderServiceDashboard() {
+  async syncRemindersToLatestServiceRecords(vehicleId) {
+    const vehReminders = this.reminders.filter((r) => r.vehicleId === vehicleId);
+    if (!vehReminders.length) return;
+
+    // Get all service/maintenance logs for this vehicle sorted chronologically (latest date & odometer last)
+    const serviceLogs = this.logs
+      .filter((l) => l.vehicleId === vehicleId && (l.type === "service" || l.type === "maintenance"))
+      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || Number(a.odometer || 0) - Number(b.odometer || 0));
+
+    if (!serviceLogs.length) return;
+
+    let updatedAny = false;
+
+    for (const r of vehReminders) {
+      // Find the most recent (latest date/odometer) service record matching this reminder
+      const latestService = [...serviceLogs].reverse().find((l) => {
+        if (Array.isArray(l.services) && l.services.some((s) => s.toLowerCase() === r.title.toLowerCase())) return true;
+        if (l.serviceItem && l.serviceItem.toLowerCase().includes(r.title.toLowerCase())) return true;
+        return false;
+      });
+
+      if (latestService) {
+        // If the reminder's baseline is older than the latest historical service record, or points to an older date/odometer
+        const serviceDate = latestService.date;
+        const serviceOdo = Number(latestService.odometer) || 0;
+
+        if (r.startDate !== serviceDate || r.startOdometer !== serviceOdo) {
+          r.startDate = serviceDate;
+          r.startOdometer = serviceOdo;
+
+          const months = r.intervalMonths || 12;
+          const nextDate = new Date(serviceDate + "T00:00:00");
+          nextDate.setMonth(nextDate.getMonth() + months);
+          r.dueDate = nextDate.toISOString().slice(0, 10);
+
+          if (r.intervalMiles) {
+            r.dueOdometer = serviceOdo + r.intervalMiles;
+          }
+
+          await AutoPulseDB.put("reminders", r);
+          updatedAny = true;
+        }
+      }
+    }
+
+    if (updatedAny) {
+      this.reminders = await AutoPulseDB.getAll("reminders");
+    }
+  },
     const container = document.getElementById("serviceRecordsList");
     if (!container) return;
 
@@ -563,9 +614,12 @@ window.App = {
           intervalDisplay = `Every ${r.intervalMonths} mo`;
         }
 
-        // Find last matching service record for this reminder
-        const lastRecord = [...this.computedLogs].reverse().find((l) => {
-          if (l.type !== "service" && l.type !== "maintenance") return false;
+        // Find the most recent chronological service record for this reminder (latest date / highest odometer)
+        const sortedServiceLogs = [...this.computedLogs]
+          .filter((l) => l.type === "service" || l.type === "maintenance")
+          .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || Number(a.odometer || 0) - Number(b.odometer || 0));
+
+        const lastRecord = [...sortedServiceLogs].reverse().find((l) => {
           if (Array.isArray(l.services) && l.services.some((s) => s.toLowerCase() === r.title.toLowerCase())) return true;
           if (l.serviceItem && l.serviceItem.toLowerCase().includes(r.title.toLowerCase())) return true;
           return false;
@@ -1059,24 +1113,6 @@ window.App = {
         const checkedBoxes = Array.from(document.querySelectorAll("input[name='serviceReminderItem']:checked"));
         const checkedServices = checkedBoxes.map((el) => el.value);
         entry.services = Array.from(new Set([...checkedServices, ...this.customServiceLines]));
-
-        // One-way advance for all checked reminders!
-        for (const cb of checkedBoxes) {
-          const remId = cb.dataset.remId;
-          const r = this.reminders.find((x) => x.id === remId);
-          if (r) {
-            r.startDate = entry.date;
-            r.startOdometer = entry.odometer;
-            const months = r.intervalMonths || 12;
-            const nextDate = new Date(entry.date + "T00:00:00");
-            nextDate.setMonth(nextDate.getMonth() + months);
-            r.dueDate = nextDate.toISOString().slice(0, 10);
-            if (r.intervalMiles) {
-              r.dueOdometer = entry.odometer + r.intervalMiles;
-            }
-            await AutoPulseDB.put("reminders", r);
-          }
-        }
       }
     }
 
@@ -1086,7 +1122,7 @@ window.App = {
     await AutoPulseDB.put("logs", entry);
     this.closeModal("logModal");
     await this.reloadAllData();
-    this.showToast("Event saved & reminders updated");
+    this.showToast("Event saved & reminders synchronized");
     this.triggerAutoSyncIfEnabled();
   },
 

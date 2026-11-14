@@ -1,4 +1,4 @@
-const CACHE_NAME = "autopulse-pwa-v6";
+const CACHE_NAME = "autopulse-pwa-v7";
 const ASSETS = [
   "./",
   "./index.html",
