@@ -54,10 +54,10 @@
         Dashboard
       </button>
       <button onclick="App.switchView('service-dashboard')" id="dtab-service-dashboard" class="nav-tab">
-        Service Records (<span id="serviceCountBadge">0</span>)
+        Service Records (<span id="serviceCountBadge">14</span>)
       </button>
       <button onclick="App.switchView('logs')" id="dtab-logs" class="nav-tab">
-        All History (<span id="logCountBadge">81</span>)
+        All History (<span id="logCountBadge">103</span>)
       </button>
       <button onclick="App.switchView('reminders')" id="dtab-reminders" class="nav-tab">
         Reminders
@@ -102,7 +102,7 @@
         <div class="card">
           <div class="kpi-label">Total Fuel & Service Spend</div>
           <div id="kpiTotalSpend" class="kpi-value">$3,581.46</div>
-          <div id="kpiFuelSub" class="kpi-foot">1,115.6 gal across 81 fill-ups</div>
+          <div id="kpiFuelSub" class="kpi-foot">1,115.6 gal across 83 fill-ups</div>
         </div>
         <div class="card">
           <div class="kpi-label">Operating Cost per Mile</div>
@@ -426,7 +426,7 @@
           <div class="card-header">
             <div>
               <div class="card-title">Direct Excel Importer (<code>auto tracker.xlsx</code>)</div>
-              <div class="card-subtitle">Your 81 Jeep Cherokee records are already pre-loaded! You can re-import an updated <code>.xlsx</code> file anytime.</div>
+              <div class="card-subtitle">Your 103 Jeep Cherokee records (83 fuel, 20 service/DMV) and 10 reminders are pre-loaded! You can re-import an updated <code>.xlsx</code> file anytime.</div>
             </div>
           </div>
           <div style="display:flex; flex-direction:column; gap:12px;">
@@ -462,7 +462,7 @@
   </main>
 
   <!-- Mobile Bottom Navigation -->
-  <nav class="mobile-nav" style="grid-template-columns: repeat(5, 1fr);">
+  <nav class="mobile-nav">
     <button onclick="App.switchView('dashboard')" id="mtab-dashboard" class="mobile-tab active">
       <span>Dashboard</span>
     </button>

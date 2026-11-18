@@ -7,6 +7,7 @@ This document tracks guidelines, conventions, entity models, schema definitions,
 ## 1. Project Overview & Architecture
 AutoPulse is a zero-dependency, local-first Progressive Web App (PWA) built with vanilla HTML5, modern CSS, and ES6 JavaScript.
 
+- **Site Stage**: `TEST` (no legacy code/migrations required; single clean schema; destructive resets allowed).
 - **Storage Engine**: Browser-native IndexedDB (`AutoPulseDB`), versioned via `db.js`.
 - **Sync Mechanism**: Optional cross-device sync to GitHub (Private Gist or Repo file) via GitHub REST API without third-party servers.
 - **File / Receipt Storage**: Google Drive integration (Option 4A: Google Apps Script Web App Bridge). The PWA sends base64 files directly to the user's deployed script; receipts are stored in the user's Google Drive folder, returning a public/view link stored in the log record.
@@ -15,7 +16,7 @@ AutoPulse is a zero-dependency, local-first Progressive Web App (PWA) built with
 ---
 
 ## 2. UI / UX Design Guidelines
-- **Minimalist Iconography**: Strictly limit the use of emojis and icons across navigation tabs, buttons, badges, tables, and alert cards. Use clean, professional typographic labels (e.g., "Fuel", "Service", "Other", "Dashboard", "Event History", "Reminders", "Data & Sync") rather than emoji prefixes.
+- **Minimalist Iconography**: Strictly limit the use of emojis and icons across navigation tabs, buttons, badges, tables, and alert cards. Use clean, professional typographic labels (e.g., "Fuel", "Service", "Other", "Dashboard", "Service Records", "All History", "Reminders", "Data & Sync") rather than emoji prefixes.
 - **Theme Support**: Dark theme by default, with light mode toggle persisted in `localStorage` under `autopulse_theme`.
 - **Responsive Navigation**: Desktop sticky header + desktop navigation bar; mobile sticky header + fixed bottom navigation bar.
 
@@ -42,6 +43,7 @@ interface LogEntry {
 
   // Type = "service" or "other" specific fields:
   serviceItem?: string;            // Description of service, repair, or other expense (e.g., "Oil Change & Brake Pads", "Tolls", "Car Wash")
+  services?: string[];             // Itemized list of services performed during a visit
 
   // Receipt attachment (Option 4A Google Drive):
   receipt?: {
@@ -76,6 +78,7 @@ interface Reminder {
   id: string;                      // e.g. "rem_71fbf8a6"
   vehicleId: string;
   title: string;                   // e.g. "Fuel Filter"
+  category?: string;               // e.g. "Maintenance"
   startDate: string | null;
   dueDate: string | null;
   startOdometer: number | null;

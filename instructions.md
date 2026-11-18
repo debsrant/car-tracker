@@ -7,13 +7,13 @@
 ## 1. Quick Start (Running Locally on Windows)
 
 ### Option A: Open Directly (Simplest)
-1. Open File Explorer and go to `c:\Users\deb\Documents\car-tracker`.
+1. Open File Explorer and go to `C:\DEV\car-tracker`.
 2. Double-click **`index.html`** to open it in Chrome, Edge, or Firefox.
 3. All data is saved automatically to your browser's local **IndexedDB** storage (`AutoPulseDB`).
 
 ### Option B: Run as an Installable Desktop App (`localhost`)
 Browser security requires `http://localhost` or `https://` to enable the offline **Service Worker** and the **Install App** button.
-1. Open PowerShell or Command Prompt in `c:\Users\deb\Documents\car-tracker`:
+1. Open PowerShell or Command Prompt in `C:\DEV\car-tracker`:
    ```powershell
    python -m http.server 8080
    ```
@@ -37,7 +37,7 @@ Hosting on **GitHub Pages** gives you a free `https://<your-username>.github.io/
 2. **Upload or Push Your Files**:
    - **Via Web Browser (No Git CLI needed)**:
      1. On your new repository page, click **uploading an existing file**.
-     2. Drag and drop these 8 files from `c:\Users\deb\Documents\car-tracker`:
+     2. Drag and drop these 8 files from `C:\DEV\car-tracker`:
         - `index.html`
         - `styles.css`
         - `app.js`
@@ -46,15 +46,15 @@ Hosting on **GitHub Pages** gives you a free `https://<your-username>.github.io/
         - `manifest.json`
         - `sw.js`
         - `icon.svg`
-        *(Optional: You do not need to upload `auto tracker.xlsx` if you want to keep the raw spreadsheet off the repo, though `seed-data.js` contains the initial 81 logs).*
+        *(Optional: You do not need to upload `auto tracker.xlsx` if you want to keep the raw spreadsheet off the repo, though `seed-data.js` contains the 103 logs and 10 maintenance reminders).*
      3. Click **Commit changes**.
-   - **Via Git CLI (PowerShell in `c:\Users\deb\Documents\car-tracker`)**:
+   - **Via Git CLI (PowerShell in `C:\DEV\car-tracker`)**:
      ```powershell
      git init
      git add index.html styles.css app.js db.js seed-data.js manifest.json sw.js icon.svg instructions.md gemini.md
      git commit -m "Initial commit of AutoPulse PWA"
      git branch -M main
-     git remote add origin https://github.com/<your-username>/car-tracker.git
+     git remote add origin https://github.com/debsrant/car-tracker.git
      git push -u origin main
      ```
 
@@ -200,7 +200,7 @@ Because it uses a small **Google Apps Script Web App** running in your own Googl
 ## 5. Using AutoPulse Features
 
 ### Switching & Adding Vehicles (Multi-Vehicle Garage)
-- **Switch Active Vehicle**: Use the vehicle dropdown in the **Top Header**, the **Dashboard Active Vehicle Bar**, the **Event History Toolbar**, or the **Reminders Toolbar**.
+- **Switch Active Vehicle**: Use the vehicle dropdown in the **Top Header**, the **Dashboard Active Vehicle Bar**, the **Service Records Toolbar**, the **All History Toolbar**, or the **Reminders Toolbar**.
 - **Add a New Vehicle**:
   - Select **`+ Add New Vehicle...`** from any vehicle dropdown, OR
   - Click **+ Vehicle** in the header, **+ New Vehicle** on the Dashboard, or **+ Add New Vehicle** directly inside the **Log Vehicle Event** popup.
@@ -220,11 +220,11 @@ Because it uses a small **Google Apps Script Web App** running in your own Googl
 5. Click **Save Entry**.
 
 ### Checking & Viewing Attached Receipts
-- **Event History Table (`Event History`)**:
+- **All History Table (`All History`) & Service Records**:
   - Every row has a dedicated **Receipt** column:
     - **`Attached ↗`** (green badge): Click to open the receipt directly in Google Drive.
     - **`+ Attach`** (dashed button): Indicates no receipt is attached yet; click it to open that entry and attach one.
-  - Use the **`All Receipts` / `Has Receipt` / `No Receipt`** dropdown in the Event History toolbar to quickly filter entries with or without receipts.
+  - Use the **`All Receipts` / `Has Receipt` / `No Receipt`** dropdown in the All History toolbar to quickly filter entries with or without receipts.
 - **Dashboard Insights**:
   - The **Receipts Attached** card under *Active Reminders & Insights* shows how many events for the current vehicle have receipts attached.
 - **Log Modal**:
@@ -239,4 +239,4 @@ Because it uses a small **Google Apps Script Web App** running in your own Googl
 - **JSON Backup**: Click **Download Full JSON Backup** under **Data & Sync** to save a complete snapshot of all vehicles, logs (including Google Drive receipt links), and reminders.
 - **CSV Export**: Click **Export Logs to CSV** to open your history in Excel or Google Sheets (includes `ReceiptAttached`, `ReceiptName`, and `ReceiptURL` columns).
 - **Excel Re-Import**: Use **Direct Excel Importer (`auto tracker.xlsx`)** to import `.xlsx` workbooks formatted like your original tracker.
-- **Factory Reset**: Click **Reset to Default Seed** to restore the original 81 Jeep Cherokee records from `seed-data.js`.
+- **Factory Reset**: Click **Reset to Default Seed** to restore the default 103 Jeep Cherokee logs and 10 maintenance reminders from `seed-data.js`.
