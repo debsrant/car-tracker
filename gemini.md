@@ -7,8 +7,8 @@ This document tracks guidelines, conventions, entity models, schema definitions,
 ## 1. Project Overview & Architecture
 AutoPulse is a zero-dependency, local-first Progressive Web App (PWA) built with vanilla HTML5, modern CSS, and ES6 JavaScript.
 
-- **Site Stage**: `TEST` (no legacy code/migrations required; single clean schema; destructive resets allowed).
-- **Storage Engine**: Browser-native IndexedDB (`AutoPulseDB`), versioned via `db.js`.
+- **Site Stage**: `LIVE` (preserve backwards compatibility, increment database schema versions non-destructively, protect production data in `AutoPulseDB`, and gate destructive resets behind `IS_TEST_SITE` via `config.js` with the header `.site-stage-badge`).
+- **Storage Engine**: Browser-native IndexedDB (`AutoPulseDB` in `LIVE`, `AutoPulseDB_Test` in `TEST` via `config.js`), versioned via `db.js`.
 - **Sync Mechanism**: Optional cross-device sync to GitHub (Private Gist or Repo file) via GitHub REST API without third-party servers.
 - **File / Receipt Storage**: Google Drive integration (Option 4A: Google Apps Script Web App Bridge). The PWA sends base64 files directly to the user's deployed script; receipts are stored in the user's Google Drive folder, returning a public/view link stored in the log record.
 - **Offline Capabilities**: Full service worker caching (`sw.js`). PWA installable on desktop and mobile.
@@ -92,6 +92,7 @@ interface Reminder {
 ---
 
 ## 4. LocalStorage Keys & State Variables
+- `car-tracker:siteStage`: Optional `"LIVE"` | `"TEST"` override (defaults to `"LIVE"` in `config.js`; `autopulse_site_stage` also accepted)
 - `autopulse_theme`: `"dark"` | `"light"`
 - `autopulse_active_vehicle`: ID of currently selected vehicle
 - `autopulse_gh_sync`: JSON stringified configuration for GitHub sync (`mode`, `token`, `gistId`, `repo`, `path`, `autoSync`, `lastSync`)

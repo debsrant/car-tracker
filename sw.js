@@ -1,8 +1,9 @@
-const CACHE_NAME = "autopulse-pwa-v8";
+const CACHE_NAME = "autopulse-pwa-v9";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./config.js",
   "./seed-data.js",
   "./db.js",
   "./app.js",

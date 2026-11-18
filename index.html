@@ -34,6 +34,9 @@
       </div>
 
       <div class="header-actions">
+        <span id="siteStageBadge" class="site-stage-badge stage-live" title="Current Site Stage and IndexedDB Database">
+          LIVE SITE · AutoPulseDB
+        </span>
         <button id="installPwaBtn" class="btn" style="display:none;" title="Install App on Device">
           Install App
         </button>
@@ -96,18 +99,18 @@
       <div class="kpi-grid">
         <div class="card">
           <div class="kpi-label">Average Fuel Economy</div>
-          <div id="kpiAvgMpg" class="kpi-value">23.1 MPG</div>
+          <div id="kpiAvgMpg" class="kpi-value">22.6 MPG</div>
           <div class="kpi-foot">Best tank: <span id="kpiBestMpg" style="color:var(--success);font-weight:700;">—</span></div>
         </div>
         <div class="card">
           <div class="kpi-label">Total Fuel & Service Spend</div>
-          <div id="kpiTotalSpend" class="kpi-value">$3,581.46</div>
-          <div id="kpiFuelSub" class="kpi-foot">1,115.6 gal across 83 fill-ups</div>
+          <div id="kpiTotalSpend" class="kpi-value">$3,652.66</div>
+          <div id="kpiFuelSub" class="kpi-foot">1,143.1 gal across 83 fill-ups</div>
         </div>
         <div class="card">
           <div class="kpi-label">Operating Cost per Mile</div>
-          <div id="kpiCostPerMile" class="kpi-value">$0.139 / mi</div>
-          <div class="kpi-foot">Avg gas price: <span id="kpiAvgPpg">$3.21/gal</span></div>
+          <div id="kpiCostPerMile" class="kpi-value">$0.141 / mi</div>
+          <div class="kpi-foot">Avg gas price: <span id="kpiAvgPpg">$3.20/gal</span></div>
         </div>
         <div class="card">
           <div class="kpi-label">Distance Tracked</div>
@@ -412,6 +415,7 @@
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
               <button onclick="App.exportJsonBackup()" class="btn btn-primary">Download Full JSON Backup</button>
               <button onclick="App.exportCsvLogs()" class="btn">Export Logs to CSV</button>
+              <button onclick="App.exportSeedDataFile()" class="btn">Export DB as seed-data.js</button>
             </div>
 
             <div style="border-top:1px solid var(--border); padding-top:12px;">
@@ -434,7 +438,7 @@
               Automatically reads <code>Vehicles</code>, <code>Events</code>, <code>Fuel</code>, <code>Maintenance</code>, <code>Repair</code>, and <code>Filters</code> sheets, normalizes dates, and links odometer events.
             </p>
             <input type="file" id="xlsxFileInput" accept=".xlsx,.xls" onchange="App.handleXlsxImport(event)" class="input" />
-            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
+            <div id="factoryResetRow" style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
               <span style="font-size:0.78rem; color:var(--text-muted);">Want to reset to the default seed dataset (includes service history & reminders)?</span>
               <button onclick="App.resetToFactorySeed()" class="btn btn-danger">Reset to Default Seed</button>
             </div>
@@ -755,6 +759,7 @@
 
   <div id="toast" class="toast">Saved!</div>
 
+  <script src="./config.js"></script>
   <script src="./seed-data.js"></script>
   <script src="./db.js"></script>
   <script src="./app.js"></script>

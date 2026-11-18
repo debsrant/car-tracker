@@ -1,5 +1,8 @@
 // Native IndexedDB Wrapper for AutoPulse Local-First PWA
-const DB_NAME = "AutoPulseDB";
+const DB_NAME =
+  typeof window !== "undefined" && window.AutoPulseConfig && window.AutoPulseConfig.DEFAULT_DB_NAME
+    ? window.AutoPulseConfig.DEFAULT_DB_NAME
+    : "AutoPulseDB";
 const DB_VERSION = 1;
 
 window.AutoPulseDB = {

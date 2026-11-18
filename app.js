@@ -12,11 +12,36 @@ window.App = {
 
   async init() {
     this.initTheme();
+    this.initSiteStage();
     this.initServiceWorkerAndInstall();
     this.loadGhSettings();
     this.loadDriveSettings();
     await AutoPulseDB.init();
     await this.reloadAllData();
+  },
+
+  initSiteStage() {
+    const cfg = window.AutoPulseConfig || {
+      SITE_STAGE: "LIVE",
+      IS_TEST_SITE: false,
+      IS_LIVE_SITE: true,
+      DEFAULT_DB_NAME: "AutoPulseDB"
+    };
+
+    if (cfg.IS_TEST_SITE && !document.title.startsWith("[TEST]")) {
+      document.title = `[TEST] ${document.title}`;
+    }
+
+    const badge = document.getElementById("siteStageBadge");
+    if (badge) {
+      badge.textContent = `${cfg.IS_TEST_SITE ? "TEST SITE" : "LIVE SITE"} · ${cfg.DEFAULT_DB_NAME}`;
+      badge.className = `site-stage-badge ${cfg.IS_TEST_SITE ? "stage-test" : "stage-live"}`;
+    }
+
+    const resetRow = document.getElementById("factoryResetRow");
+    if (resetRow && cfg.IS_LIVE_SITE) {
+      resetRow.style.display = "none";
+    }
   },
 
   initTheme() {
@@ -1736,6 +1761,29 @@ window.App = {
     this.showToast("JSON Backup downloaded");
   },
 
+  async exportSeedDataFile() {
+    const payload = await AutoPulseDB.exportFullBackup();
+    const sortedLogs = [...(payload.logs || [])].sort(
+      (a, b) => Number(a.odometer || 0) - Number(b.odometer || 0) || String(a.date || "").localeCompare(String(b.date || ""))
+    );
+    const seedPayload = {
+      schemaVersion: payload.schemaVersion || 2,
+      vehicles: payload.vehicles || [],
+      reminders: payload.reminders || [],
+      logs: sortedLogs
+    };
+    const fileText =
+      `// Seed data exported from AutoPulse (${new Date().toISOString().slice(0, 10)})\n` +
+      `window.SEED_DATA = ${JSON.stringify(seedPayload, null, 2)};\n`;
+    const blob = new Blob([fileText], { type: "application/javascript" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "seed-data.js";
+    a.click();
+    this.showToast("seed-data.js exported from live database");
+  },
+
   exportCsvLogs() {
     const headers = ["VehicleID", "Date", "Odometer", "DeltaMiles", "Type", "Location", "FuelGrade", "Gallons", "PricePerGal", "TotalCost", "CalculatedMPG", "ReceiptAttached", "ReceiptName", "ReceiptURL", "Notes"];
     const lines = [headers.join(",")];
@@ -1918,6 +1966,10 @@ window.App = {
   },
 
   async resetToFactorySeed() {
+    if (window.AutoPulseConfig && !window.AutoPulseConfig.IS_TEST_SITE) {
+      alert("Factory reset is disabled in LIVE mode to protect production records.");
+      return;
+    }
     if (!confirm("Reset all local data back to the default 103 seed records and 10 maintenance reminders?")) return;
     await AutoPulseDB.clearAll();
     await AutoPulseDB.seedInitialData(window.SEED_DATA);
